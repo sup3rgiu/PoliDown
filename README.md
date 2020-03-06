@@ -7,9 +7,9 @@ This project is based on https://github.com/snobu/destreamer
 
 ## PREREQS
 
-* **Node.js**: anything above v8.0 seems to work. A GitHub Action runs tests on Node 8, 10 and 12 on every commit.
-* **youtube-dl**: https://ytdl-org.github.io/youtube-dl/download.html, you'll need a fairly recent version that understands encrypted HLS streams. This needs to be in your `$PATH`. PoliDown calls `youtube-dl` with a bunch of arguments.
-* **ffmpeg**: a recent version (year 2019 or above), in `$PATH`.
+* [**Node.js**](https://nodejs.org/it/download/): anything above v8.0 seems to work. A GitHub Action runs tests on Node 8, 10 and 12 on every commit.
+* [**youtube-dl**](https://ytdl-org.github.io/youtube-dl/download.html): you'll need a fairly recent version that understands encrypted HLS streams. This needs to be in your `$PATH`. PoliDown calls `youtube-dl` with a bunch of arguments.
+* [**ffmpeg**](https://www.ffmpeg.org/download.html): a recent version (year 2019 or above), in `$PATH`.
 
 
 ## USAGE
