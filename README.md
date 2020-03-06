@@ -26,7 +26,7 @@ Options:
   --help             Show help                                         [boolean]
   --version          Show version number                               [boolean]
   --videoUrls                                                 [array] [required]
-  --username                                                 [string] [required]
+  --username         Codice Persona PoliMi                   [string] [required]
   --password                                                 [string] [required]
   --outputDirectory                                 [string] [default: "videos"]
 
