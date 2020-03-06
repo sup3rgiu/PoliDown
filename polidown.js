@@ -25,16 +25,15 @@ function sanityChecks() {
         term.green(`Using youtube-dl version ${ytdlVer}`);
     }
     catch (e) {
-        console.error('You need youtube-dl in $PATH for this to work. Make sure it is a relatively recent one, baked after 2019.');
+        term.red('You need youtube-dl in $PATH for this to work. Make sure it is a relatively recent one, baked after 2019.');
         process.exit(22);
     }
     try {
-        const ffmpegVer = execSync('ffmpeg -version')
-            .toString().split('\n')[0];
+        const ffmpegVer = execSync('ffmpeg -version').toString().split('\n')[0];
         term.green(`Using ${ffmpegVer}\n`);
     }
     catch (e) {
-        console.error('FFmpeg is missing. You need a fairly recent release of FFmpeg in $PATH.');
+        term.red('FFmpeg is missing. You need a fairly recent release of FFmpeg in $PATH.');
         process.exit(23);
     }
     if (!fs.existsSync(argv.outputDirectory)) {
