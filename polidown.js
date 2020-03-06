@@ -9,7 +9,7 @@ const yargs = require("yargs");
 
 const argv = yargs.options({
     videoUrls: { type: 'array', demandOption: true },
-    username: { type: 'string', demandOption: true },
+    username: { type: 'string', demandOption: true, describe: 'Codice Persona PoliMi' },
     password: { type: 'string', demandOption: true },
     outputDirectory: { type: 'string', default: 'videos' }
 }).argv;
