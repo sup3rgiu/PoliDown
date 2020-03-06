@@ -44,7 +44,7 @@ You can use an absolute path for `--outputDirectory`.
 Project based on https://github.com/snobu/destreamer
 Fork powered by @sup3rgiu
 Using youtube-dl version 2020.03.06
-Using ffmpeg version N-92953-gad0d5d7516 Copyright (c) 2000-2019 the FFmpeg developers
+Using ffmpeg version git-2020-03-06-cfd9a65 Copyright (c) 2000-2020 the FFmpeg developers
 
 Launching headless Chrome to perform the OpenID Connect dance...
 Navigating to STS login page...
