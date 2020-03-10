@@ -47,13 +47,7 @@ function sanityChecks() {
 
 }
 async function downloadVideo(videoUrls, username, password, outputDirectory) {
-   console.log('\nLaunching headless Chrome to perform the OpenID Connect dance...');
-   const browser = await puppeteer.launch({
-       // Switch to false if you need to login interactively
-       headless: true,
-       args: ['--disable-dev-shm-usage', '--lang=it-IT']
-   });
-
+    
    // handle password
    const keytar = require('keytar');
    //keytar.deletePassword('PoliDown', username);
@@ -78,6 +72,13 @@ async function downloadVideo(videoUrls, username, password, outputDirectory) {
             // X11 is missing. Can't use keytar
         }
    }
+    
+   console.log('\nLaunching headless Chrome to perform the OpenID Connect dance...');
+   const browser = await puppeteer.launch({
+       // Switch to false if you need to login interactively
+       headless: true,
+       args: ['--disable-dev-shm-usage', '--lang=it-IT']
+   });
 
    const page = await browser.newPage();
    console.log('Navigating to STS login page...');
