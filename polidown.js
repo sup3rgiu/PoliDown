@@ -9,17 +9,19 @@ const path = require("path");
 const yargs = require("yargs");
 var m3u8Parser = require("m3u8-parser");
 const request = require('request');
+const readline = require("readline");
+
 
 const argv = yargs.options({
     videoUrls: { type: 'array', demandOption: true },
     username: { type: 'string', demandOption: true, describe: 'Codice Persona PoliMi' },
-    password: { type: 'string', demandOption: true },
+    password: { type: 'string', demandOption: false },
     outputDirectory: { type: 'string', default: 'videos' }
 }).argv;
 
 console.info('Video URLs: %s', argv.videoUrls);
 console.info('Username: %s', argv.username);
-console.info('Password: %s', argv.password);
+//console.info('Password: %s', argv.password);
 console.info('Output Directory: %s\n', argv.outputDirectory);
 
 function sanityChecks() {
@@ -53,6 +55,36 @@ async function downloadVideo(videoUrls, username, password, outputDirectory) {
        headless: true,
        args: ['--disable-dev-shm-usage', '--lang=it-IT']
    });
+    if(password === null) { // non è stata passata password come argomento
+        const keytar = require('keytar');
+        const rl = readline.createInterface({
+                input: process.stdin,
+                output: process.stdout
+            }); 
+        var password = {};
+        try{
+            await keytar.getPassword("PoliDown",username).then(function(result) {password=result;});
+        }
+        catch(e) {
+            await new Promise((fulfill) => {
+                rl.question("Impossibile utilizzare keytar; inserire password: ", (result) => {
+                    password=result;
+                    rl.close();
+                    fulfill();
+                })
+            });
+        }
+        if (password === null) { // non esiste password salvata precedentemente
+            await new Promise((fulfill) => {
+                rl.question("Password non salvata. Inserisci password:", (result) => {
+                    password=result;
+                    rl.close();
+                    fulfill();
+                })
+            });
+            await keytar.setPassword("PoliDown",username,password);
+        }
+    }
    const page = await browser.newPage();
    console.log('Navigating to STS login page...');
    await page.goto(videoUrls[0], { waitUntil: 'networkidle2' });
@@ -351,4 +383,5 @@ async function extractCookies(page) {
 
 term.brightBlue(`Project originally based on https://github.com/snobu/destreamer\nFork powered by @sup3rgiu\nImprovements: PoliMi Autologin - Multithreading download (much faster) - Video Quality Choice\n`);
 sanityChecks();
-downloadVideo(argv.videoUrls, argv.username, argv.password, argv.outputDirectory);
+if (typeof argv.password === 'undefined') downloadVideo(argv.videoUrls, argv.username, null, argv.outputDirectory); // caso in cui non viene passata password come arg
+else downloadVideo(argv.videoUrls, argv.username, argv.password, argv.outputDirectory);
