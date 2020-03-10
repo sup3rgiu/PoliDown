@@ -1,5 +1,7 @@
 # PoliDown
 
+## SOON: multi-thread download. Stay tuned!
+
 ## Saves Microsoft Stream videos uploaded by Politecnico di Milano.
 
 This project is based on https://github.com/snobu/destreamer
