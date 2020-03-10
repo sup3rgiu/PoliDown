@@ -33,7 +33,7 @@ function sanityChecks() {
     }
     try {
         const ffmpegVer = execSync('ffmpeg -version').toString().split('\n')[0];
-        term.green(`Using ${ffmpegVer}\n`);
+        term.green(`Using ${ffmpegVer}\n\n`);
     }
     catch (e) {
         term.red('FFmpeg is missing. You need a fairly recent release of FFmpeg in $PATH.');
@@ -47,12 +47,6 @@ function sanityChecks() {
 
 }
 async function downloadVideo(videoUrls, username, password, outputDirectory) {
-   console.log('\nLaunching headless Chrome to perform the OpenID Connect dance...');
-   const browser = await puppeteer.launch({
-       // Switch to false if you need to login interactively
-       headless: true,
-       args: ['--disable-dev-shm-usage', '--lang=it-IT']
-   });
 
    // handle password
    const keytar = require('keytar');
@@ -64,6 +58,8 @@ async function downloadVideo(videoUrls, username, password, outputDirectory) {
             if (password === null) { // no previous password saved
                 password = await promptQuestion("Password not saved. Please insert your password, PoliDown will not ask for it the next time: ");
                 await keytar.setPassword("PoliDown", username, password);
+            } else {
+                console.log("Reusing password saved in system's keychain")
             }
         }
         catch(e) {
@@ -78,6 +74,13 @@ async function downloadVideo(videoUrls, username, password, outputDirectory) {
             // X11 is missing. Can't use keytar
         }
    }
+
+   console.log('\nLaunching headless Chrome to perform the OpenID Connect dance...');
+   const browser = await puppeteer.launch({
+       // Switch to false if you need to login interactively
+       headless: true,
+       args: ['--disable-dev-shm-usage', '--lang=it-IT']
+   });
 
    const page = await browser.newPage();
    console.log('Navigating to STS login page...');
