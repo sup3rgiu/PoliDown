@@ -13,13 +13,13 @@ const request = require('request');
 const argv = yargs.options({
     videoUrls: { type: 'array', demandOption: true },
     username: { type: 'string', demandOption: true, describe: 'Codice Persona PoliMi' },
-    password: { type: 'string', demandOption: true },
+    password: { type: 'string', demandOption: false },
     outputDirectory: { type: 'string', default: 'videos' }
 }).argv;
 
 console.info('Video URLs: %s', argv.videoUrls);
 console.info('Username: %s', argv.username);
-console.info('Password: %s', argv.password);
+//console.info('Password: %s', argv.password);
 console.info('Output Directory: %s\n', argv.outputDirectory);
 
 function sanityChecks() {
@@ -53,6 +53,32 @@ async function downloadVideo(videoUrls, username, password, outputDirectory) {
        headless: true,
        args: ['--disable-dev-shm-usage', '--lang=it-IT']
    });
+
+   // handle password
+   const keytar = require('keytar');
+   //keytar.deletePassword('PoliDown', username);
+   if(password === null) { // password not passed as argument
+       var password = {};
+        try {
+            await keytar.getPassword("PoliDown", username).then(function(result) { password = result; });
+            if (password === null) { // no previous password saved
+                password = await promptQuestion("Password not saved. Please insert your password, PoliDown will not ask for it the next time: ");
+                await keytar.setPassword("PoliDown", username, password);
+            }
+        }
+        catch(e) {
+            console.log("X11 is not installed on this system. PoliDown can't use keytar to save the password.")
+            password = await promptQuestion("No problem, please insert manually your password: ");
+        }
+   } else {
+        try {
+            await keytar.setPassword("PoliDown", username, password);
+            console.log("Your password has been saved. Next time, you can avoid to insert it!");
+        } catch(e) {
+            // X11 is missing. Can't use keytar
+        }
+   }
+
    const page = await browser.newPage();
    console.log('Navigating to STS login page...');
    await page.goto(videoUrls[0], { waitUntil: 'networkidle2' });
@@ -109,7 +135,6 @@ async function downloadVideo(videoUrls, username, password, outputDirectory) {
        var uploadDate = create_message.match(/(\d{1,4}([.\-\/])\d{1,2}([.\-\/])\d{1,4})/g);
        if (uploadDate !== null) {
            uploadDate = uploadDate[0].replace(/\//g, "_");
-            // console.log(uploadDate);
            title = 'Lesson ' + uploadDate + ' - ' + title;
        } else {
             // console.log("no upload date found");
@@ -141,7 +166,6 @@ async function downloadVideo(videoUrls, username, password, outputDirectory) {
         parser.push(response);
         parser.end();
         var parsedManifest = parser.manifest;
-        //console.log(JSON.stringify(parsedManifest, null, 2));
 
         var playlistsInfo = {};
         var question = '\n';
@@ -306,6 +330,24 @@ function promptResChoice(question, count) {
   });
 }
 
+function promptQuestion(question) {
+  const readline = require('readline');
+  const rl = readline.createInterface({
+    input: process.stdin,
+     output: process.stdout
+  });
+
+  return new Promise(function(resolve, reject) {
+    var ask = function() {
+      rl.question(question, function(answer) {
+            resolve(answer, reject);
+            rl.close();
+      });
+    };
+    ask();
+  });
+}
+
 
 function rmDir(dir, rmSelf) {
     var files;
@@ -351,4 +393,5 @@ async function extractCookies(page) {
 
 term.brightBlue(`Project originally based on https://github.com/snobu/destreamer\nFork powered by @sup3rgiu\nImprovements: PoliMi Autologin - Multithreading download (much faster) - Video Quality Choice\n`);
 sanityChecks();
-downloadVideo(argv.videoUrls, argv.username, argv.password, argv.outputDirectory);
+if (typeof argv.password === 'undefined') downloadVideo(argv.videoUrls, argv.username, null, argv.outputDirectory);
+else downloadVideo(argv.videoUrls, argv.username, argv.password, argv.outputDirectory);

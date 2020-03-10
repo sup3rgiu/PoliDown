@@ -11,6 +11,7 @@
   "author": "sup3rgiu",
   "license": "MIT",
   "dependencies": {
+    "keytar": "^5.4.0",
     "m3u8-parser": "^4.4.0",
     "puppeteer": "^1.20.0",
     "request": "^2.88.2",
