@@ -59,7 +59,7 @@ async function downloadVideo(videoUrls, username, password, outputDirectory) {
                 password = await promptQuestion("Password not saved. Please insert your password, PoliDown will not ask for it the next time: ");
                 await keytar.setPassword("PoliDown", username, password);
             } else {
-                console.log("Reusing password saved in system's keychain")
+                console.log("Reusing password saved in system's keychain!")
             }
         }
         catch(e) {
