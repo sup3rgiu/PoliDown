@@ -53,13 +53,24 @@ async function downloadVideo(videoUrls, username, password, outputDirectory) {
     if(password === null) { // non è stata passata password come argomento
     	const keytar = require('keytar');
     	var password = {};
-    	await keytar.getPassword("PoliDown",username).then(function(result) {password=result;});
+        const readline = require("readline");
+            const rl = readline.createInterface({
+                input: process.stdin,
+                output: process.stdout
+            }); 
+        try{
+            await keytar.getPassword("PoliDown",username).then(function(result) {password=result;});
+        }
+        catch(e){
+            await new Promise((fulfill) => {
+                rl.question("X11 non presente nel sistema; necessario inserire password: ", (result) => {
+                    password=result;
+                    rl.close();
+                    fulfill();
+                })
+            });
+        }
     	if (password === null) { // non esiste password salvata precedentemente
-    		const readline = require("readline");
-			const rl = readline.createInterface({
-    			input: process.stdin,
-   				output: process.stdout
-			});	
     		await new Promise((fulfill) => {
 				rl.question("Password non salvata. Inserisci password:", (result) => {
 		        	password=result;
