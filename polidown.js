@@ -82,13 +82,6 @@ async function downloadVideo(videoUrls, username, password, outputDirectory) {
        args: ['--disable-dev-shm-usage', '--lang=it-IT']
    });
 
-   console.log('\nLaunching headless Chrome to perform the OpenID Connect dance...');
-   const browser = await puppeteer.launch({
-       // Switch to false if you need to login interactively
-       headless: true,
-       args: ['--disable-dev-shm-usage', '--lang=it-IT']
-   });
-
    const page = await browser.newPage();
    console.log('Navigating to STS login page...');
    await page.goto(videoUrls[0], { waitUntil: 'networkidle2' });
