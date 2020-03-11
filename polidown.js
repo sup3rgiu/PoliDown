@@ -96,7 +96,6 @@ async function downloadVideo(videoUrls, username, password, outputDirectory) {
    await page.type('input#password', password) // mette la password
    await page.click('button[name="evn_conferma"]') // clicca sul tasto "Accedi"
 
-
    try {
      await page.waitForSelector('div[class="Message ErrorMessage"]', { timeout: 1000 });
      term.red('Bad credentials');
@@ -106,7 +105,14 @@ async function downloadVideo(videoUrls, username, password, outputDirectory) {
    }
 
    try {
-     await page.waitForSelector('input[id="idBtn_Back"]', { timeout: 1000 });
+       await page.waitForSelector('button[name="evn_continua"]', { timeout: 1000 }); // password is expiring
+       await page.click('button[name="evn_continua"]');
+   } catch (error) {
+       // password is not expiring
+   }
+
+   try {
+     await page.waitForSelector('input[id="idBtn_Back"]', { timeout: 2000 });
      await page.click('input[id="idBtn_Back"]'); // clicca sul tasto "No" per rimanere connessi
    } catch (error) {
       // bottone non apparso, ok...
