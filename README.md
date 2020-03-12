@@ -37,9 +37,9 @@ Options:
   --outputDirectory                                 [string] [default: "videos"]
 
 
-$ node polidown.js --username CODICEPERSONA --password PASSWORD --outputDirectory "videos" \
-    --videoUrls "https://web.microsoftstream.com/video/VIDEO-1" \
-                "https://web.microsoftstream.com/video/VIDEO-2" \
+$ node polidown.js --username CODICEPERSONA --password PASSWORD --outputDirectory "videos"
+    --videoUrls "https://web.microsoftstream.com/video/VIDEO-1"
+                "https://web.microsoftstream.com/video/VIDEO-2"
                 "https://web.microsoftstream.com/video/VIDEO-3"
 ```
 You can omit the password. PoliDown will ask for it interactively and then save it securely in system's keychain for the next use.
