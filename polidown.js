@@ -11,10 +11,11 @@ var m3u8Parser = require("m3u8-parser");
 const request = require('request');
 
 const argv = yargs.options({
-    videoUrls: { type: 'array', demandOption: true },
-    username: { type: 'string', demandOption: true, describe: 'Codice Persona PoliMi' },
-    password: { type: 'string', demandOption: false },
-    outputDirectory: { type: 'string', default: 'videos' }
+    v: { alias:'videoUrls', type: 'array', demandOption: true },
+    u: { alias:'username', type: 'string', demandOption: true, describe: 'Codice Persona PoliMi' },
+    p: { alias:'password', type: 'string', demandOption: false },
+    o: { alias:'outputDirectory', type: 'string', default: 'videos' },
+    q: { alias: 'quality', type: 'number', demandOption: false, describe: 'Video Quality [0-5]'}
 }).argv;
 
 console.info('Video URLs: %s', argv.videoUrls);
@@ -194,9 +195,14 @@ async function downloadVideo(videoUrls, username, password, outputDirectory) {
                 audioObj = parsedManifest['playlists'][i];
             }
         }
-        question = question + 'Choose the desired resolution: ';
+        //  if quality is passed as argument use that, otherwise prompt
+        if (typeof argv.quality === 'undefined') {
+            question = question + 'Choose the desired resolution: ';
 
-        var res_choice = await promptResChoice(question, count);
+            var res_choice = await promptResChoice(question, count);
+        }
+        else var res_choice = argv.quality;
+        
         videoObj = playlistsInfo[res_choice];
 
         const basePlaylistsUrl = hlsUrl.substring(0, hlsUrl.lastIndexOf("/") + 1);
@@ -232,7 +238,12 @@ async function downloadVideo(videoUrls, username, password, outputDirectory) {
         if(process.platform === 'win32') {
             keyReplacement = 'data:text/plain;base64,' + key64;
         } else {
-            const local_key_path = path.join(process.cwd(), full_tmp_dir, 'my.key'); // requires absolute path in order to replace the URI inside the m3u8 file
+            if (full_tmp_dir[0] == '/' || full_tmp_dir[0] == '~') { // absolute path
+                var local_key_path = path.join(full_tmp_dir, 'my.key');
+            }
+            else {
+                var local_key_path = path.join(process.cwd(), full_tmp_dir, 'my.key'); // requires absolute path in order to replace the URI inside the m3u8 file
+            }
             fs.writeFileSync(local_key_path, key);
             keyReplacement = 'file://' + local_key_path;
         }
