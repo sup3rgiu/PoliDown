@@ -57,7 +57,7 @@ async function downloadVideo(videoUrls, username, password, outputDirectory) {
         try {
             await keytar.getPassword("PoliDown", username).then(function(result) { password = result; });
             if (password === null) { // no previous password saved
-                password = await promptQuestion("Password not saved. Please insert your password, PoliDown will not ask for it the next time: ");
+                password = await promptQuestion("Password not saved. Please enter your password, PoliDown will not ask for it next time: ");
                 await keytar.setPassword("PoliDown", username, password);
             } else {
                 console.log("Reusing password saved in system's keychain!")
@@ -65,12 +65,12 @@ async function downloadVideo(videoUrls, username, password, outputDirectory) {
         }
         catch(e) {
             console.log("X11 is not installed on this system. PoliDown can't use keytar to save the password.")
-            password = await promptQuestion("No problem, please insert manually your password: ");
+            password = await promptQuestion("No problem, please manually enter your password: ");
         }
    } else {
         try {
             await keytar.setPassword("PoliDown", username, password);
-            console.log("Your password has been saved. Next time, you can avoid to insert it!");
+            console.log("Your password has been saved. Next time, you can avoid entering it!");
         } catch(e) {
             // X11 is missing. Can't use keytar
         }
@@ -238,7 +238,7 @@ async function downloadVideo(videoUrls, username, password, outputDirectory) {
         if(process.platform === 'win32') {
             keyReplacement = 'data:text/plain;base64,' + key64;
         } else {
-            if (full_tmp_dir[0] == '/' || full_tmp_dir[0] == '~') { // absolute path
+            if (path.isAbsolute(full_tmp_dir) || full_tmp_dir[0] == '~') { // absolute path
                 var local_key_path = path.join(full_tmp_dir, 'my.key');
             }
             else {
@@ -341,7 +341,7 @@ function promptResChoice(question, count) {
             resolve(parseInt(answer), reject);
             rl.close();
           } else {
-            console.log("\n* Wrong * - Please insert a number between 0 and " + (count-1) + "\n");
+            console.log("\n* Wrong * - Please enter a number between 0 and " + (count-1) + "\n");
             ask();
         }
       });
