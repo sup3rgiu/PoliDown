@@ -11,10 +11,11 @@ var m3u8Parser = require("m3u8-parser");
 const request = require('request');
 
 const argv = yargs.options({
-    videoUrls: { type: 'array', demandOption: true },
-    username: { type: 'string', demandOption: true, describe: 'Codice Persona PoliMi' },
-    password: { type: 'string', demandOption: false },
-    outputDirectory: { type: 'string', default: 'videos' }
+    v: { alias:'videoUrls', type: 'array', demandOption: true },
+    u: { alias:'username', type: 'string', demandOption: true, describe: 'Codice Persona PoliMi' },
+    p: { alias:'password', type: 'string', demandOption: false },
+    o: { alias:'outputDirectory', type: 'string', default: 'videos' },
+    q: { alias: 'quality', type: 'number', demandOption: false, describe: 'Video Quality [0-5]'}
 }).argv;
 
 console.info('Video URLs: %s', argv.videoUrls);
@@ -56,7 +57,7 @@ async function downloadVideo(videoUrls, username, password, outputDirectory) {
         try {
             await keytar.getPassword("PoliDown", username).then(function(result) { password = result; });
             if (password === null) { // no previous password saved
-                password = await promptQuestion("Password not saved. Please insert your password, PoliDown will not ask for it the next time: ");
+                password = await promptQuestion("Password not saved. Please enter your password, PoliDown will not ask for it next time: ");
                 await keytar.setPassword("PoliDown", username, password);
             } else {
                 console.log("Reusing password saved in system's keychain!")
@@ -64,12 +65,12 @@ async function downloadVideo(videoUrls, username, password, outputDirectory) {
         }
         catch(e) {
             console.log("X11 is not installed on this system. PoliDown can't use keytar to save the password.")
-            password = await promptQuestion("No problem, please insert manually your password: ");
+            password = await promptQuestion("No problem, please manually enter your password: ");
         }
    } else {
         try {
             await keytar.setPassword("PoliDown", username, password);
-            console.log("Your password has been saved. Next time, you can avoid to insert it!");
+            console.log("Your password has been saved. Next time, you can avoid entering it!");
         } catch(e) {
             // X11 is missing. Can't use keytar
         }
@@ -194,9 +195,14 @@ async function downloadVideo(videoUrls, username, password, outputDirectory) {
                 audioObj = parsedManifest['playlists'][i];
             }
         }
-        question = question + 'Choose the desired resolution: ';
+        //  if quality is passed as argument use that, otherwise prompt
+        if (typeof argv.quality === 'undefined') {
+            question = question + 'Choose the desired resolution: ';
 
-        var res_choice = await promptResChoice(question, count);
+            var res_choice = await promptResChoice(question, count);
+        }
+        else var res_choice = argv.quality;
+        
         videoObj = playlistsInfo[res_choice];
 
         const basePlaylistsUrl = hlsUrl.substring(0, hlsUrl.lastIndexOf("/") + 1);
@@ -232,7 +238,12 @@ async function downloadVideo(videoUrls, username, password, outputDirectory) {
         if(process.platform === 'win32') {
             keyReplacement = 'data:text/plain;base64,' + key64;
         } else {
-            const local_key_path = path.join(process.cwd(), full_tmp_dir, 'my.key'); // requires absolute path in order to replace the URI inside the m3u8 file
+            if (path.isAbsolute(full_tmp_dir) || full_tmp_dir[0] == '~') { // absolute path
+                var local_key_path = path.join(full_tmp_dir, 'my.key');
+            }
+            else {
+                var local_key_path = path.join(process.cwd(), full_tmp_dir, 'my.key'); // requires absolute path in order to replace the URI inside the m3u8 file
+            }
             fs.writeFileSync(local_key_path, key);
             keyReplacement = 'file://' + local_key_path;
         }
@@ -330,7 +341,7 @@ function promptResChoice(question, count) {
             resolve(parseInt(answer), reject);
             rl.close();
           } else {
-            console.log("\n* Wrong * - Please insert a number between 0 and " + (count-1) + "\n");
+            console.log("\n* Wrong * - Please enter a number between 0 and " + (count-1) + "\n");
             ask();
         }
       });
