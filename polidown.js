@@ -15,8 +15,17 @@ const argv = yargs.options({
     u: { alias:'username', type: 'string', demandOption: true, describe: 'Codice Persona PoliMi' },
     p: { alias:'password', type: 'string', demandOption: false },
     o: { alias:'outputDirectory', type: 'string', default: 'videos' },
-    q: { alias: 'quality', type: 'number', demandOption: false, describe: 'Video Quality [0-5]'}
-}).argv;
+    q: { alias: 'quality', type: 'number', demandOption: false, describe: 'Video Quality [0-5]'},
+    k: { alias: 'noKeyring', type: 'boolean', default: false, demandOption: false, describe: 'Do not use system keyring'}
+})
+.help('h')
+.alias('h', 'help')
+.example('node $0 -u CODICEPERSONA -v "https://web.microsoftstream.com/video/9611baf5-b12e-4782-82fb-b2gf68c05adc"\n', "Standard usage")
+.example('node $0 -u CODICEPERSONA -v "https://web.microsoftstream.com/video/9611baf5-b12e-4782-82fb-b2gf68c05adc" "https://web.microsoftstream.com/video/6711baa5-c56e-4782-82fb-c2ho68c05zde"\n', "Multiple videos download")
+.example('node $0 -u CODICEPERSONA -v "https://web.microsoftstream.com/video/9611baf5-b12e-4782-82fb-b2gf68c05adc" -q 4\n', "Define default quality download to avoid manual prompt")
+.example('node $0 -u CODICEPERSONA -v "https://web.microsoftstream.com/video/9611baf5-b12e-4782-82fb-b2gf68c05adc" -o "C:\\Lessons\\Videos"\n', "Define output directory (absoulte o relative path)")
+.example('node $0 -u CODICEPERSONA -v "https://web.microsoftstream.com/video/9611baf5-b12e-4782-82fb-b2gf68c05adc" -k\n', "Do not save the password into system keyring")
+.argv;
 
 console.info('Video URLs: %s', argv.videoUrls);
 console.info('Username: %s', argv.username);
@@ -41,9 +50,14 @@ function sanityChecks() {
         process.exit(23);
     }
     if (!fs.existsSync(argv.outputDirectory)) {
-        console.log('Creating output directory: ' +
-            process.cwd() + path.sep + argv.outputDirectory);
-        fs.mkdirSync(argv.outputDirectory);
+        if (path.isAbsolute(argv.outputDirectory) || argv.outputDirectory[0] == '~') console.log('Creating output directory: ' + argv.outputDirectory);
+        else console.log('Creating output directory: ' + process.cwd() + path.sep + argv.outputDirectory);
+        try {
+          fs.mkdirSync(argv.outputDirectory, { recursive: true }); // use native API for nested directory. No recursive function needed, but compatible only with node v10 or later
+        } catch (e) {
+          term.red("Can not create nested directories. Node v10 or later is required\n");
+          process.exit();
+        }
     }
 
 }
@@ -53,29 +67,34 @@ async function downloadVideo(videoUrls, username, password, outputDirectory) {
    const keytar = require('keytar');
    //keytar.deletePassword('PoliDown', username);
    if(password === null) { // password not passed as argument
-       var password = {};
-        try {
-            await keytar.getPassword("PoliDown", username).then(function(result) { password = result; });
-            if (password === null) { // no previous password saved
-                password = await promptQuestion("Password not saved. Please enter your password, PoliDown will not ask for it next time: ");
-                await keytar.setPassword("PoliDown", username, password);
-            } else {
-                console.log("Reusing password saved in system's keychain!")
-            }
-        }
-        catch(e) {
-            console.log("X11 is not installed on this system. PoliDown can't use keytar to save the password.")
-            password = await promptQuestion("No problem, please manually enter your password: ");
+        var password = {};
+        if(argv.noKeyring === false) {
+          try {
+              await keytar.getPassword("PoliDown", username).then(function(result) { password = result; });
+              if (password === null) { // no previous password saved
+                  password = await promptQuestion("Password not saved. Please enter your password, PoliDown will not ask for it next time: ");
+                  await keytar.setPassword("PoliDown", username, password);
+              } else {
+                  console.log("Reusing password saved in system's keychain!")
+              }
+          }
+          catch(e) {
+              console.log("X11 is not installed on this system. PoliDown can't use keytar to save the password.")
+              password = await promptQuestion("No problem, please manually enter your password: ");
+          }
+        } else {
+          password = await promptQuestion("Please enter your password: ");
         }
    } else {
+      if(argv.noKeyring === false) {
         try {
             await keytar.setPassword("PoliDown", username, password);
             console.log("Your password has been saved. Next time, you can avoid entering it!");
         } catch(e) {
             // X11 is missing. Can't use keytar
         }
+      }
    }
-
    console.log('\nLaunching headless Chrome to perform the OpenID Connect dance...');
    const browser = await puppeteer.launch({
        // Switch to false if you need to login interactively
@@ -198,11 +217,19 @@ async function downloadVideo(videoUrls, username, password, outputDirectory) {
         //  if quality is passed as argument use that, otherwise prompt
         if (typeof argv.quality === 'undefined') {
             question = question + 'Choose the desired resolution: ';
-
             var res_choice = await promptResChoice(question, count);
         }
-        else var res_choice = argv.quality;
-        
+        else {
+          if(argv.quality < 0 || argv.quality > count-1) {
+            term.yellow(`Desired quality is not available for this video (available range: 0-${count-1})\nI'm going to use the best resolution available: ${playlistsInfo[count-1]['resolution']}`);
+            var res_choice = count-1;
+          }
+          else {
+            term.yellow(`Selected resolution: ${playlistsInfo[count-1]['resolution']}`);
+            var res_choice = argv.quality;
+          }
+        }
+
         videoObj = playlistsInfo[res_choice];
 
         const basePlaylistsUrl = hlsUrl.substring(0, hlsUrl.lastIndexOf("/") + 1);
@@ -262,7 +289,7 @@ async function downloadVideo(videoUrls, username, password, outputDirectory) {
         fs.writeFileSync(video_tmp_path, video_tmp);
 
         // download async. I'm Speed
-        var aria2cCmd = 'aria2c -i ' + video_full_path + ' -j 16 -x 16 -d ' + path.join(full_tmp_dir, 'video_segments') + ' --header="Cookie:' + cookie + '"';
+        var aria2cCmd = 'aria2c -i "' + video_full_path + '" -j 16 -x 16 -d "' + path.join(full_tmp_dir, 'video_segments') + '" --header="Cookie:' + cookie + '"';
         var result = execSync(aria2cCmd, { stdio: 'inherit' });
 
         // **** AUDIO ****
@@ -283,7 +310,7 @@ async function downloadVideo(videoUrls, username, password, outputDirectory) {
         fs.writeFileSync(audio_full_path, audio_full);
         fs.writeFileSync(audio_tmp_path, audio_tmp);
 
-        var aria2cCmd = 'aria2c -i ' + audio_full_path + ' -j 16 -x 16 -d ' + path.join(full_tmp_dir, 'audio_segments') + ' --header="Cookie:' + cookie + '"';
+        var aria2cCmd = 'aria2c -i "' + audio_full_path + '" -j 16 -x 16 -d "' + path.join(full_tmp_dir, 'audio_segments') + '" --header="Cookie:' + cookie + '"';
         var result = execSync(aria2cCmd, { stdio: 'inherit' });
 
         // *** MERGE audio and video segements in an mp4 file ***
@@ -296,7 +323,12 @@ async function downloadVideo(videoUrls, username, password, outputDirectory) {
         var ffmpegOpts = {stdio: 'inherit'};
         if(process.platform === 'win32') {
             ffmpegOpts['cwd'] = full_tmp_dir; // change working directory on windows, otherwise ffmpeg doesn't find the segements (relative paths problem, again, stupid windows. Or stupid me?)
-            var ffmpegCmd = 'ffmpeg -protocol_whitelist file,http,https,tcp,tls,crypto,data -allowed_extensions ALL -i ' + 'audio_tmp.m3u8' + ' -protocol_whitelist file,http,https,tcp,tls,crypto,data -allowed_extensions ALL -i ' + 'video_tmp.m3u8' + ' -async 1 -c copy -bsf:a aac_adtstoasc -n "' + path.join('..', '..', outputDirectory, title) + '.mp4"';
+            var outputFullPath = '';
+            if (path.isAbsolute(outputDirectory) || outputDirectory[0] == '~')
+              outputFullPath = path.join(outputDirectory, title);
+            else
+              outputFullPath = path.join('..', '..', outputDirectory, title);
+            var ffmpegCmd = 'ffmpeg -protocol_whitelist file,http,https,tcp,tls,crypto,data -allowed_extensions ALL -i ' + 'audio_tmp.m3u8' + ' -protocol_whitelist file,http,https,tcp,tls,crypto,data -allowed_extensions ALL -i ' + 'video_tmp.m3u8' + ' -async 1 -c copy -bsf:a aac_adtstoasc -n "' + outputFullPath + '.mp4"';
         } else {
             var ffmpegCmd = 'ffmpeg -protocol_whitelist file,http,https,tcp,tls,crypto -allowed_extensions ALL -i ' + audio_tmp_path + ' -protocol_whitelist file,http,https,tcp,tls,crypto -allowed_extensions ALL -i ' + video_tmp_path + ' -async 1 -c copy -bsf:a aac_adtstoasc -n "' + path.join(outputDirectory, title) + '.mp4"';
         }
