@@ -29,26 +29,53 @@ Improvements in this fork:
 * `cd` into the cloned folder
 * `npm install` to install dependencies
 
-
+Default usage:
 ```
-$ node polidown.js
+$ node polidown.js --username CODICEPERSONA --videoUrls "https://web.microsoftstream.com/video/VIDEO-1"
+
+$ node polidown.js -u CODICEPERSONA -v "https://web.microsoftstream.com/video/VIDEO-1"
+```
+
+Show options:
+```
+$ node polidown.js -h
 
 Options:
-  --help             Show help                                         [boolean]
-  --version          Show version number                               [boolean]
-  --videoUrls                                                 [array] [required]
-  --username         Codice Persona PoliMi                   [string] [required]
-  --password                                                 [string] 
-  --outputDirectory                                 [string] [default: "videos"]
+  --version              Show version number                           [boolean]
+  -v, --videoUrls                                             [array] [required]
+  -u, --username         Codice Persona PoliMi               [string] [required]
+  -p, --password                                                        [string]
+  -o, --outputDirectory                             [string] [default: "videos"]
+  -q, --quality          Video Quality [0-5]                            [number]
+  -k, --noKeyring        Do not use system keyring    [boolean] [default: false]
+  -h, --help             Show help                                     [boolean]
+```
 
-
-$ node polidown.js --username CODICEPERSONA --password PASSWORD --outputDirectory "videos"
-    --videoUrls "https://web.microsoftstream.com/video/VIDEO-1"
+Multiple videos download:
+```
+$ node polidown.js -u CODICEPERSONA
+    -v "https://web.microsoftstream.com/video/VIDEO-1"
                 "https://web.microsoftstream.com/video/VIDEO-2"
                 "https://web.microsoftstream.com/video/VIDEO-3"
 ```
-You can omit the password. PoliDown will ask for it interactively and then save it securely in system's keychain for the next use.
-You can use an absolute path for `--outputDirectory`.
+
+Define default video quality [0-5] (avoid manual prompt for each video):
+```
+$ node polidown.js -u CODICEPERSONA -v "https://web.microsoftstream.com/video/VIDEO-1" -q 4
+```
+
+Output directory (relative or absoulte path):
+```
+$ node polidown.js -u CODICEPERSONA -v "https://web.microsoftstream.com/video/VIDEO-1" -o "/my/path/here"
+```
+
+Do not use system keyring to save the password:
+```
+$ node polidown.js -u CODICEPERSONA -v "https://web.microsoftstream.com/video/VIDEO-1" -k
+```
+
+
+You can omit the password argument. PoliDown will ask for it interactively and then save it securely in system's keychain for the next use.
 
 ## EXPECTED OUTPUT
 
