@@ -156,7 +156,7 @@ async function downloadVideo(videoUrls, username, password, outputDirectory) {
            () => { return document.querySelector(".title").textContent.trim();
        });
        console.log(`\nVideo title is: ${title}`);
-       var title = title.replace(/[/\\?%*:|"<>]/g, '-'); // remove illegal characters
+       var title = title.replace(/[/\\?%*:;|"<>]/g, '-'); // remove illegal characters
        const create_message = await page.evaluate(
            () => { return document.querySelector(".video-create-message .info-message-content").textContent.trim();
        });
@@ -225,8 +225,8 @@ async function downloadVideo(videoUrls, username, password, outputDirectory) {
             var res_choice = count-1;
           }
           else {
-            term.yellow(`Selected resolution: ${playlistsInfo[count-1]['resolution']}`);
             var res_choice = argv.quality;
+            term.yellow(`Selected resolution: ${playlistsInfo[res_choice]['resolution']}`);
           }
         }
 
@@ -258,21 +258,19 @@ async function downloadVideo(videoUrls, username, password, outputDirectory) {
             encoding: null
         };
         const key = await doRequest(options);
-        const key64 = key.toString('base64');
 
-        // stupid Windows. Need to find a better way. Can't find a way to use a Windows local path for the key URI. So I'm base64-encoding the key. However ffmpeg on Linux doesn't accept this format (???)
         var keyReplacement = '';
+        if (path.isAbsolute(full_tmp_dir) || full_tmp_dir[0] == '~') { // absolute path
+            var local_key_path = path.join(full_tmp_dir, 'my.key');
+        }
+        else {
+            var local_key_path = path.join(process.cwd(), full_tmp_dir, 'my.key'); // requires absolute path in order to replace the URI inside the m3u8 file
+        }
+        fs.writeFileSync(local_key_path, key);
         if(process.platform === 'win32') {
-            keyReplacement = 'data:text/plain;base64,' + key64;
+          keyReplacement = await 'file:' + local_key_path.replace(/\\/g, '/');
         } else {
-            if (path.isAbsolute(full_tmp_dir) || full_tmp_dir[0] == '~') { // absolute path
-                var local_key_path = path.join(full_tmp_dir, 'my.key');
-            }
-            else {
-                var local_key_path = path.join(process.cwd(), full_tmp_dir, 'my.key'); // requires absolute path in order to replace the URI inside the m3u8 file
-            }
-            fs.writeFileSync(local_key_path, key);
-            keyReplacement = 'file://' + local_key_path;
+          keyReplacement = 'file://' + local_key_path;
         }
 
 
@@ -281,7 +279,7 @@ async function downloadVideo(videoUrls, username, password, outputDirectory) {
         // - video_tmp.m3u8: used by ffmpeg to merge all downloaded segements (in this one we replace the remote key URI with the absoulte local path of the key downloaded above)
         var baseUri = videoLink.substring(0, videoLink.lastIndexOf("/") + 1);
         var video_full = await response.replace(new RegExp('Fragments', 'g'), baseUri+'Fragments'); // local path to full remote url path
-        var video_tmp = await response.replace(keyUri, keyReplacement); // remote URI to local abasolute path (linux/macos) or to base64 string (windows)
+        var video_tmp = await response.replace(keyUri, keyReplacement); // remote URI to local abasolute path
         var video_tmp = await video_tmp.replace(new RegExp('Fragments', 'g'), 'video_segments/Fragments');
         const video_full_path = path.join(full_tmp_dir, 'video_full.m3u8');
         const video_tmp_path = path.join(full_tmp_dir, 'video_tmp.m3u8');
