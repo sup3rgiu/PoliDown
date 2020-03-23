@@ -103,52 +103,80 @@ async function downloadVideo(videoUrls, username, password, outputDirectory) {
    });
 
    const page = await browser.newPage();
-   console.log('Navigating to STS login page...');
-   await page.goto(videoUrls[0], { waitUntil: 'networkidle2' });
-   await page.waitForSelector('input[type="email"]');
-   const usernameEmail = username + "@polimi.it";
-   await page.keyboard.type(usernameEmail);
-   await page.click('input[type="submit"]');
+   //Se esistono carica cookies salvati precedentemente
+   const cookiesPath = "cookies.txt";
+   const previousSession = fs.existsSync(cookiesPath)
+   if (previousSession) {
+     const content = fs.readFileSync(cookiesPath);
+     const cookiesArr = JSON.parse(content);
+     if (cookiesArr.length !== 0) {
+       for (let cookie of cookiesArr) {
+         await page.setCookie(cookie)
+       }
+       console.log('Loaded cookies from previous session.')
+     }
+   } else {
+     console.log('Navigating to STS login page...');
+     await page.goto(videoUrls[0], { waitUntil: 'networkidle2' });
+     await page.waitForSelector('input[type="email"]');
+     const usernameEmail = username + "@polimi.it";
+     await page.keyboard.type(usernameEmail);
+     await page.click('input[type="submit"]');
 
-   console.log('Filling in Servizi Online login form...');
-   await page.waitForSelector('input[id="login"]');
-   await page.type('input#login', username) // mette il codice persona
-   await page.type('input#password', password) // mette la password
-   await page.click('button[name="evn_conferma"]') // clicca sul tasto "Accedi"
+     console.log('Filling in Servizi Online login form...');
+     await page.waitForSelector('input[id="login"]');
+     await page.type('input#login', username) // mette il codice persona
+     await page.type('input#password', password) // mette la password
+     await page.click('button[name="evn_conferma"]') // clicca sul tasto "Accedi"
 
-   try {
-     await page.waitForSelector('div[class="Message ErrorMessage"]', { timeout: 1000 });
-     term.red('Bad credentials');
-     process.exit(401);
-   } catch (error) {
+     try {
+       await page.waitForSelector('div[class="Message ErrorMessage"]', { timeout: 1000 });
+       term.red('Bad credentials');
+       process.exit(401);
+     } catch (error) {
       // tutto ok
-   }
+     }
 
-   try {
+     try {
        await page.waitForSelector('button[name="evn_continua"]', { timeout: 1000 }); // password is expiring
        await page.click('button[name="evn_continua"]');
-   } catch (error) {
+     } catch (error) {
        // password is not expiring
-   }
+     }
 
-   try {
-     await page.waitForSelector('input[id="idBtn_Back"]', { timeout: 2000 });
-     await page.click('input[id="idBtn_Back"]'); // clicca sul tasto "No" per rimanere connessi
-   } catch (error) {
+     try {
+       await page.waitForSelector('input[id="idSIButton9"]', { timeout: 2000 });
+       await page.click('input[id="idSIButton9"]'); // clicca sul tasto "Sì" per rimanere connessi e avere cookies che non scadano in fretta?
+     } catch (error) {
       // bottone non apparso, ok...
+     }
+
+
+     await browser.waitForTarget(target => target.url().includes('microsoftstream.com/'), { timeout: 90000 });
+     console.log('We are logged in. ');
+     //Salva cookies per la prossima volta 
+     const cookiesObject = await page.cookies()
+     fs.writeFileSync(cookiesPath, JSON.stringify(cookiesObject));
+     console.log('Session has been saved to ' + cookiesPath);
    }
-
-
-   await browser.waitForTarget(target => target.url().includes('microsoftstream.com/'), { timeout: 90000 });
-   console.log('We are logged in. ');
     for (let videoUrl of videoUrls) {
        term.green(`\nStart downloading video: ${videoUrl}\n`);
        await page.goto(videoUrl, { waitUntil: 'networkidle2' });
        await sleep(2000);
+       //Usa cookies precedentemente estratti oppure estraili e salvali per la prossima volta
+       let cookie;
+       const extractedCookiesPath = "extractedCookies.txt";
+       const previousCookie = fs.existsSync(extractedCookiesPath)
+       if (previousCookie) {
+         cookie = fs.readFileSync(extractedCookiesPath);
+         console.log('Reusing previously saved cookies.');
+       } else {
+         cookie = await extractCookies(page);
+         console.log('Got required authentication cookies. And saving them for next time.');
+         fs.writeFileSync(extractedCookiesPath, cookie);
+         await sleep(4000);
+       }
 
-       const cookie = await extractCookies(page);
-       console.log('Got required authentication cookies.');
-       await sleep(4000);
        console.log('Looking up AMS stream locator...');
        let amp;
        const amsUrl = await page.evaluate(() => { return amp.Player.players["vjs_video_3"].cache_.src; });
