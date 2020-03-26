@@ -5,6 +5,7 @@ const puppeteer = require("puppeteer");
 const term = require("terminal-kit").terminal;
 const fs = require("fs");
 var https = require('https');
+const url = require('url');
 const path = require("path");
 const yargs = require("yargs");
 var m3u8Parser = require("m3u8-parser");
@@ -104,7 +105,7 @@ async function downloadVideo(videoUrls, username, password, outputDirectory) {
 
    const page = await browser.newPage();
    console.log('Navigating to STS login page...');
-   await page.goto(videoUrls[0], { waitUntil: 'networkidle2' });
+   await page.goto('https://web.microsoftstream.com/', { waitUntil: 'networkidle2' });
    await page.waitForSelector('input[type="email"]');
    const usernameEmail = username + "@polimi.it";
    await page.keyboard.type(usernameEmail);
@@ -141,54 +142,77 @@ async function downloadVideo(videoUrls, username, password, outputDirectory) {
 
    await browser.waitForTarget(target => target.url().includes('microsoftstream.com/'), { timeout: 90000 });
    console.log('We are logged in. ');
+   await sleep (3000)
+   const cookie = await extractCookies(page);
+   console.log('Got required authentication cookies.');
     for (let videoUrl of videoUrls) {
        term.green(`\nStart downloading video: ${videoUrl}\n`);
-       await page.goto(videoUrl, { waitUntil: 'networkidle2' });
-       await sleep(2000);
 
-       const cookie = await extractCookies(page);
-       console.log('Got required authentication cookies.');
-       await sleep(4000);
-       console.log('Looking up AMS stream locator...');
-       let amp;
-       const amsUrl = await page.evaluate(() => { return amp.Player.players["vjs_video_3"].cache_.src; });
-       var title = await page.evaluate(
-           () => { return document.querySelector(".title").textContent.trim();
-       });
-       console.log(`\nVideo title is: ${title}`);
-       var title = title.replace(/[/\\?%*:;|"<>]/g, '-'); // remove illegal characters
-       const create_message = await page.evaluate(
-           () => { return document.querySelector(".video-create-message .info-message-content").textContent.trim();
-       });
+       var videoID = videoUrl.substring(videoUrl.indexOf("/video/")+7, videoUrl.length).substring(0, 36); // use the video id (36 character after '/video/') as temp dir name
+       var full_tmp_dir = path.join(argv.outputDirectory, videoID);
 
-       var uploadDate = create_message.match(/(\d{1,4}([.\-\/])\d{1,2}([.\-\/])\d{1,4})/g);
-       if (uploadDate !== null) {
-           uploadDate = uploadDate[0].replace(/\//g, "_");
-           title = 'Lesson ' + uploadDate + ' - ' + title;
+       var headers = {
+           'Cookie': cookie
+       };
+
+       var options = {
+           url: 'https://euwe-1.api.microsoftstream.com/api/videos/'+videoID+'?api-version=1.0-private',
+           headers: headers
+       };
+       var response = await doRequest(options);
+       const obj = JSON.parse(response);
+
+       if(obj.hasOwnProperty('error')) {
+         let errorMsg = ''
+         if(obj.error.code === 'Forbidden') {
+           errorMsg = 'You are not authorized to access this video.\n'
+         } else {
+           errorMsg = '\nError downloading this video.\n'
+         }
+         term.red(errorMsg)
+         continue;
+       }
+
+       // creates tmp dir
+       if (!fs.existsSync(full_tmp_dir)) {
+           fs.mkdirSync(full_tmp_dir);
+       } else {
+           rmDir(full_tmp_dir);
+           fs.mkdirSync(full_tmp_dir);
+       }
+
+       var title = (obj.name).trim();
+       var isoDate = obj.publishedDate;
+       if (isoDate !== null && isoDate !== '') {
+          let date = new Date(isoDate);
+          let year = date.getFullYear();
+          let month = date.getMonth()+1;
+          let dt = date.getDate();
+
+          if (dt < 10) {
+            dt = '0' + dt;
+          }
+            if (month < 10) {
+            month = '0' + month;
+          }
+          let uploadDate = dt + '_' + month + '_' + year;
+          title = 'Lesson ' + uploadDate + ' - ' + title;
        } else {
             // console.log("no upload date found");
        }
 
-       //console.log('Constructing HLS URL...');
-       const hlsUrl = amsUrl.substring(0, amsUrl.lastIndexOf('/')) + '/manifest(format=m3u8-aapl)';
+      let playbackUrls = obj.playbackUrls
+      let hlsUrl = ''
+      for(var elem in playbackUrls) {
+          if(playbackUrls[elem]['mimeType'] === 'application/vnd.apple.mpegurl') {
+            var u = url.parse(playbackUrls[elem]['playbackUrl'], true);
+            hlsUrl = u.query.playbackurl
+            break;
+          }
+      }
 
-        var tmpDir = videoUrl.substring(videoUrl.indexOf("/video/")+7, videoUrl.length).substring(0, 36); // use the video id (36 character after '/video/') as temp dir name
-        var full_tmp_dir = path.join(argv.outputDirectory, tmpDir);
-
-        // creates tmp dir
-        if (!fs.existsSync(full_tmp_dir)) {
-            fs.mkdirSync(full_tmp_dir);
-        } else {
-            rmDir(full_tmp_dir);
-            fs.mkdirSync(full_tmp_dir);
-        }
-
-        var headers = {
-            'Cookie': cookie
-        };
         var options = {
             url: hlsUrl,
-            headers: headers
         };
         var response = await doRequest(options);
         var parser = new m3u8Parser.Parser();
@@ -348,7 +372,7 @@ async function downloadVideo(videoUrls, username, password, outputDirectory) {
 function doRequest(options) {
   return new Promise(function (resolve, reject) {
     request(options, function (error, res, body) {
-      if (!error && res.statusCode == 200) {
+      if (!error && (res.statusCode == 200 || res.statusCode == 403)) {
         resolve(body);
       } else {
         reject(error);
