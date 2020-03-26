@@ -182,6 +182,8 @@ async function downloadVideo(videoUrls, username, password, outputDirectory) {
        }
 
        var title = (obj.name).trim();
+       console.log(`\nVideo title is: ${title}`);
+       title = title.replace(/[/\\?%*:;|"<>]/g, '-'); // remove illegal characters
        var isoDate = obj.publishedDate;
        if (isoDate !== null && isoDate !== '') {
           let date = new Date(isoDate);
