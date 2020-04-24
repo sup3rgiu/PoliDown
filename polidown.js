@@ -11,8 +11,24 @@ const yargs = require("yargs");
 var m3u8Parser = require("m3u8-parser");
 const request = require('request');
 
+
+const demandOneOfOption = (...options) => (argv) => {
+    const count = options.filter(option => argv[option]).length;
+    const lastOption = options.pop();
+  
+    if (count === 0) {
+      throw new Error(`Exactly one of the arguments ${options.join(', ')} and ${lastOption} is required`);
+    }
+    else if (count > 1) {
+      throw new Error(`Arguments ${options.join(', ')} and ${lastOption} are mutually exclusive`);
+    }
+  
+    return true;
+};
+
 const argv = yargs.options({
-    v: { alias:'videoUrls', type: 'array', demandOption: true },
+    v: { alias:'videoUrls', type: 'array', demandOption: false },
+    f: { alias:'filePage', type: 'string', demandOption: false },
     u: { alias:'username', type: 'string', demandOption: true, describe: 'Codice Persona PoliMi' },
     p: { alias:'password', type: 'string', demandOption: false },
     o: { alias:'outputDirectory', type: 'string', default: 'videos' },
@@ -26,12 +42,16 @@ const argv = yargs.options({
 .example('node $0 -u CODICEPERSONA -v "https://web.microsoftstream.com/video/9611baf5-b12e-4782-82fb-b2gf68c05adc" -q 4\n', "Define default quality download to avoid manual prompt")
 .example('node $0 -u CODICEPERSONA -v "https://web.microsoftstream.com/video/9611baf5-b12e-4782-82fb-b2gf68c05adc" -o "C:\\Lessons\\Videos"\n', "Define output directory (absoulte o relative path)")
 .example('node $0 -u CODICEPERSONA -v "https://web.microsoftstream.com/video/9611baf5-b12e-4782-82fb-b2gf68c05adc" -k\n', "Do not save the password into system keyring")
+.conflicts('v', 'f')
+.check(demandOneOfOption('v', 'f'))
 .argv;
 
 console.info('Video URLs: %s', argv.videoUrls);
+console.info('Html page: %s', argv.filePage);
 console.info('Username: %s', argv.username);
 //console.info('Password: %s', argv.password);
 console.info('Output Directory: %s\n', argv.outputDirectory);
+
 
 function sanityChecks() {
     try {
@@ -467,7 +487,36 @@ async function extractCookies(page) {
     return `Authorization=${authzCookie.value}; Signature=${sigCookie.value}`;
 }
 
+function extractUrls(filePage){
+    var text 
+    try{ text = fs.readFileSync(filePage) } catch(e){ console.log("!Oops, can't open the file: " + filePage); process.exit(); }
+    text = text.toString();
+
+    var re = /\/video\/.{36}/g;
+    var urls = text.match(re);
+
+    if(urls.size == 0){
+        console.log("!No valid url found in file: " + filePage);
+        exit();
+    }
+
+    // remove duplicates
+    urls = Array.from(new Set(urls))
+
+    console.log("Found " + urls.length + " urls in file: ");
+    for(var i = 0; i<urls.length; i++)
+        console.log(urls[i]);
+    console.log();              // pretty printing
+
+    return urls;
+}
+
+
 term.brightBlue(`Project originally based on https://github.com/snobu/destreamer\nFork powered by @sup3rgiu\nImprovements: PoliMi Autologin - Multithreading download (much faster) - Video Quality Choice\n`);
 sanityChecks();
+
+if (typeof argv.filePage !== 'undefined')
+    argv.videoUrls = extractUrls(argv.filePage);
+
 if (typeof argv.password === 'undefined') downloadVideo(argv.videoUrls, argv.username, null, argv.outputDirectory);
 else downloadVideo(argv.videoUrls, argv.username, argv.password, argv.outputDirectory);
