@@ -495,9 +495,9 @@ function extractUrls(filePage){
     var re = /\/video\/.{36}/g;
     var urls = text.match(re);
 
-    if(urls.size == 0){
+    if(urls === null){
         console.log("!No valid url found in file: " + filePage);
-        exit();
+        process.exit();
     }
 
     // remove duplicates
