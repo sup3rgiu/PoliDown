@@ -487,8 +487,8 @@ async function extractCookies(page) {
     return `Authorization=${authzCookie.value}; Signature=${sigCookie.value}`;
 }
 
-function extractUrls(filePage){
-    var text 
+async function extractUrls(filePage){
+    var text;
     try{ text = fs.readFileSync(filePage) } catch(e){ console.log("!Oops, can't open the file: " + filePage); process.exit(); }
     text = text.toString();
 
@@ -503,20 +503,37 @@ function extractUrls(filePage){
     // remove duplicates
     urls = Array.from(new Set(urls))
 
+    var reDate = /\d{2}\/\d{2}\/\d{4}/g; 
+    var dates = text.match(reDate);
+
+    if(dates === null)
+        process.exit();         //Video without date..?
+
+    // remove duplicates
+    for(var i = 0; i<dates.length; i++)
+        dates.splice(i+1, 5);   //Each date has 6 entries in the source
+
     console.log("Found " + urls.length + " urls in file: ");
-    for(var i = 0; i<urls.length; i++)
-        console.log(urls[i]);
+
+    urls.forEach((value, i) => console.log("[" + (i+1) + "] " + value + " - " + dates[i]));
     console.log();              // pretty printing
+    
+    var skipCount = await promptResChoice("Please enter how many videos you want to skip downloading from the beginning of the list: ", urls.length-1);
+    urls.splice(0, skipCount);
 
     return urls;
+}
+
+async function run(){
+    if (typeof argv.filePage !== 'undefined')
+        argv.videoUrls = await extractUrls(argv.filePage);
+
+    if (typeof argv.password === 'undefined') downloadVideo(argv.videoUrls, argv.username, null, argv.outputDirectory);
+    else downloadVideo(argv.videoUrls, argv.username, argv.password, argv.outputDirectory);
 }
 
 
 term.brightBlue(`Project originally based on https://github.com/snobu/destreamer\nFork powered by @sup3rgiu\nImprovements: PoliMi Autologin - Multithreading download (much faster) - Video Quality Choice\n`);
 sanityChecks();
 
-if (typeof argv.filePage !== 'undefined')
-    argv.videoUrls = extractUrls(argv.filePage);
-
-if (typeof argv.password === 'undefined') downloadVideo(argv.videoUrls, argv.username, null, argv.outputDirectory);
-else downloadVideo(argv.videoUrls, argv.username, argv.password, argv.outputDirectory);
+run();
