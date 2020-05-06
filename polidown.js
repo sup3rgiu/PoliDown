@@ -163,7 +163,7 @@ async function downloadVideo(videoUrls, username, password, outputDirectory) {
 
    await browser.waitForTarget(target => target.url().includes('microsoftstream.com/'), { timeout: 90000 });
    console.log('We are logged in. ');
-   await sleep (10000)
+   await sleep (3000)
    const cookie = await extractCookies(page);
    console.log('Got required authentication cookies.');
     for (let videoUrl of videoUrls) {
