@@ -43,6 +43,7 @@ $ node polidown.js -h
 Options:
   --version              Show version number                           [boolean]
   -v, --videoUrls                                             [array] [required]
+  -f, --videoUrlsFile    Path to txt file containing the URLs (one URL for each line) [string]
   -u, --username         Codice Persona PoliMi               [string] [required]
   -p, --password                                                        [string]
   -o, --outputDirectory                             [string] [default: "videos"]
@@ -59,6 +60,11 @@ $ node polidown.js -u CODICEPERSONA
                 "https://web.microsoftstream.com/video/VIDEO-3"
 ```
 
+Download from TXT file (one link each line):
+```
+$ node polidown.js -u CODICEPERSONA -f "/my/path/here/links.txt"
+```
+
 Define default video quality [0-5] (avoid manual prompt for each video):
 ```
 $ node polidown.js -u CODICEPERSONA -v "https://web.microsoftstream.com/video/VIDEO-1" -q 4
@@ -67,6 +73,11 @@ $ node polidown.js -u CODICEPERSONA -v "https://web.microsoftstream.com/video/VI
 Output directory (relative or absoulte path):
 ```
 $ node polidown.js -u CODICEPERSONA -v "https://web.microsoftstream.com/video/VIDEO-1" -o "/my/path/here"
+```
+
+Replace saved password
+```
+$ node polidown.js -u CODICEPERSONA -p MYNEWPASSWORD -v "https://web.microsoftstream.com/video/VIDEO-1"
 ```
 
 Do not use system keyring to save the password:
