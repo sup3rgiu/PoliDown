@@ -12,7 +12,8 @@ var m3u8Parser = require("m3u8-parser");
 const request = require('request');
 
 const argv = yargs.options({
-    v: { alias:'videoUrls', type: 'array', demandOption: true },
+    v: { alias:'videoUrls', type: 'array', demandOption: false },
+    f: { alias: 'videoUrlsFile', type: 'string', demandOption: false, describe: 'Path to txt file containing the URLs (one URL for each line)'},
     u: { alias:'username', type: 'string', demandOption: true, describe: 'Codice Persona PoliMi' },
     p: { alias:'password', type: 'string', demandOption: false },
     o: { alias:'outputDirectory', type: 'string', default: 'videos' },
@@ -22,16 +23,12 @@ const argv = yargs.options({
 .help('h')
 .alias('h', 'help')
 .example('node $0 -u CODICEPERSONA -v "https://web.microsoftstream.com/video/9611baf5-b12e-4782-82fb-b2gf68c05adc"\n', "Standard usage")
+.example('node $0 -u CODICEPERSONA -f URLsList.txt\n', "Standard usage")
 .example('node $0 -u CODICEPERSONA -v "https://web.microsoftstream.com/video/9611baf5-b12e-4782-82fb-b2gf68c05adc" "https://web.microsoftstream.com/video/6711baa5-c56e-4782-82fb-c2ho68c05zde"\n', "Multiple videos download")
 .example('node $0 -u CODICEPERSONA -v "https://web.microsoftstream.com/video/9611baf5-b12e-4782-82fb-b2gf68c05adc" -q 4\n', "Define default quality download to avoid manual prompt")
 .example('node $0 -u CODICEPERSONA -v "https://web.microsoftstream.com/video/9611baf5-b12e-4782-82fb-b2gf68c05adc" -o "C:\\Lessons\\Videos"\n', "Define output directory (absoulte o relative path)")
 .example('node $0 -u CODICEPERSONA -v "https://web.microsoftstream.com/video/9611baf5-b12e-4782-82fb-b2gf68c05adc" -k\n', "Do not save the password into system keyring")
 .argv;
-
-console.info('Video URLs: %s', argv.videoUrls);
-console.info('Username: %s', argv.username);
-//console.info('Password: %s', argv.password);
-console.info('Output Directory: %s\n', argv.outputDirectory);
 
 function sanityChecks() {
     try {
@@ -50,6 +47,17 @@ function sanityChecks() {
         term.red('FFmpeg is missing. You need a fairly recent release of FFmpeg in $PATH.');
         process.exit(23);
     }
+    if (argv.videoUrls === undefined && argv.videoUrlsFile === undefined) {
+        term.red("Missing URLs arguments.\n");
+        process.exit();
+    }        
+    if (argv.videoUrls !== undefined && argv.videoUrlsFile !== undefined) {
+        term.red("Can't get URLs from both argument.\n");
+        process.exit();
+    }
+    if (argv.videoUrlsFile !== undefined)
+        argv.videoUrls = argv.videoUrlsFile; // merge argument
+
     if (!fs.existsSync(argv.outputDirectory)) {
         if (path.isAbsolute(argv.outputDirectory) || argv.outputDirectory[0] == '~') console.log('Creating output directory: ' + argv.outputDirectory);
         else console.log('Creating output directory: ' + process.cwd() + path.sep + argv.outputDirectory);
@@ -62,12 +70,25 @@ function sanityChecks() {
     }
 
 }
+
+function readFileToArray(path) {
+    path = path.substr(1,path.length-2);
+    return fs.readFileSync(path).toString('utf-8').split('\r\n');
+}
+
+function parseVideoUrls(videoUrls) {
+    let stringVideoUrls = JSON.stringify(videoUrls);
+    if (stringVideoUrls.substr(stringVideoUrls.length-5) == ".txt\"") // is path?
+        return readFileToArray(stringVideoUrls);
+    return videoUrls;
+}
+
 async function downloadVideo(videoUrls, username, password, outputDirectory) {
 
    // handle password
    const keytar = require('keytar');
    //keytar.deletePassword('PoliDown', username);
-   if(password === null) { // password not passed as argument
+   if(password === undefined) { // password not passed as argument
         var password = {};
         if(argv.noKeyring === false) {
           try {
@@ -146,6 +167,7 @@ async function downloadVideo(videoUrls, username, password, outputDirectory) {
    const cookie = await extractCookies(page);
    console.log('Got required authentication cookies.');
     for (let videoUrl of videoUrls) {
+       if (videoUrl == "") continue; // jump empty url
        term.green(`\nStart downloading video: ${videoUrl}\n`);
 
        var videoID = videoUrl.substring(videoUrl.indexOf("/video/")+7, videoUrl.length).substring(0, 36); // use the video id (36 character after '/video/') as temp dir name
@@ -469,5 +491,9 @@ async function extractCookies(page) {
 
 term.brightBlue(`Project originally based on https://github.com/snobu/destreamer\nFork powered by @sup3rgiu\nImprovements: PoliMi Autologin - Multithreading download (much faster) - Video Quality Choice\n`);
 sanityChecks();
-if (typeof argv.password === 'undefined') downloadVideo(argv.videoUrls, argv.username, null, argv.outputDirectory);
-else downloadVideo(argv.videoUrls, argv.username, argv.password, argv.outputDirectory);
+const videoUrls = parseVideoUrls(argv.videoUrls);
+console.info('Video URLs: %s', videoUrls);
+console.info('Username: %s', argv.username);
+//console.info('Password: %s', argv.password);
+console.info('Output Directory: %s\n', argv.outputDirectory);
+downloadVideo(videoUrls, argv.username, argv.password, argv.outputDirectory);
