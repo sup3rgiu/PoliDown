@@ -342,10 +342,10 @@ async function downloadVideo(videoUrls, username, password, outputDirectory) {
             var aria2cCmd = 'aria2c -i "' + video_full_path + '" -j 16 -x 16 -d "' + video_segments_path + '" --header="Cookie:' + cookie + '"';
             var result = execSync(aria2cCmd, { stdio: 'inherit' });
           } catch (e) { 
-		        term.green('\n\nOops! We lost some video fragment! Trying one more time...\n\n');	
-		        rmDir(video_segments_path);
-		        fs.unlinkSync(video_tmp_path);
-		        fs.unlinkSync(video_full_path);
+            term.green('\n\nOops! We lost some video fragment! Trying one more time...\n\n');	
+            rmDir(video_segments_path);
+	    fs.unlinkSync(video_tmp_path);
+	    fs.unlinkSync(video_full_path);
             continue;
           }
           break;
@@ -375,10 +375,10 @@ async function downloadVideo(videoUrls, username, password, outputDirectory) {
             var aria2cCmd = 'aria2c -i "' + audio_full_path + '" -j 16 -x 16 -d "' + audio_segments_path + '" --header="Cookie:' + cookie + '"';
             var result = execSync(aria2cCmd, { stdio: 'inherit' });
           } catch (e) { 
-		        term.green('\n\nOops! We lost some audio fragment! Trying one more time...\n\n');	
-		        rmDir(audio_segments_path);
-		        fs.unlinkSync(audio_tmp_path);
-		        fs.unlinkSync(audio_full_path);
+	    term.green('\n\nOops! We lost some audio fragment! Trying one more time...\n\n');	
+	    rmDir(audio_segments_path);
+	    fs.unlinkSync(audio_tmp_path);
+	    fs.unlinkSync(audio_full_path);
             continue;
           }
           break;
