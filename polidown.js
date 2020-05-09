@@ -166,6 +166,7 @@ async function downloadVideo(videoUrls, username, password, outputDirectory) {
    await sleep (3000)
    const cookie = await extractCookies(page);
    console.log('Got required authentication cookies.');
+   console.log("\nAt this point Chrome's job is done, shutting it down...");
    await browser.close(); // browser is no more required. Free up RAM!
     for (let videoUrl of videoUrls) {
        if (videoUrl == "") continue; // jump empty url
@@ -412,7 +413,7 @@ async function downloadVideo(videoUrls, username, password, outputDirectory) {
 
     }
 
-    console.log("\nAt this point Chrome's job is done, shutting it down...");
+    console.log("\nAll requested videos have been downloaded!\n");
     term.green(`Done!\n`);
 
 }
