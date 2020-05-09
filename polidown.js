@@ -169,7 +169,6 @@ async function downloadVideo(videoUrls, username, password, outputDirectory) {
    await browser.close(); // browser is no more required. Free up RAM!
     for (let videoUrl of videoUrls) {
        if (videoUrl == "") continue; // jump empty url
-       
        term.green(`\nStart downloading video: ${videoUrl}\n`);
 
        var videoID = videoUrl.substring(videoUrl.indexOf("/video/")+7, videoUrl.length).substring(0, 36); // use the video id (36 character after '/video/') as temp dir name
