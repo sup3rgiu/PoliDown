@@ -166,8 +166,10 @@ async function downloadVideo(videoUrls, username, password, outputDirectory) {
    await sleep (3000)
    const cookie = await extractCookies(page);
    console.log('Got required authentication cookies.');
+   await browser.close(); // browser is no more required. Free up RAM!
     for (let videoUrl of videoUrls) {
        if (videoUrl == "") continue; // jump empty url
+       
        term.green(`\nStart downloading video: ${videoUrl}\n`);
 
        var videoID = videoUrl.substring(videoUrl.indexOf("/video/")+7, videoUrl.length).substring(0, 36); // use the video id (36 character after '/video/') as temp dir name
@@ -331,12 +333,24 @@ async function downloadVideo(videoUrls, username, password, outputDirectory) {
         var video_tmp = await video_tmp.replace(new RegExp('Fragments', 'g'), 'video_segments/Fragments');
         const video_full_path = path.join(full_tmp_dir, 'video_full.m3u8');
         const video_tmp_path = path.join(full_tmp_dir, 'video_tmp.m3u8');
-        fs.writeFileSync(video_full_path, video_full);
-        fs.writeFileSync(video_tmp_path, video_tmp);
+        const video_segments_path = path.join(full_tmp_dir, 'video_segments');
+        while (true) {// make aria2 multithreading download more consistent and reliable
+          try {
+            fs.writeFileSync(video_full_path, video_full);
+            fs.writeFileSync(video_tmp_path, video_tmp);
 
-        // download async. I'm Speed
-        var aria2cCmd = 'aria2c -i "' + video_full_path + '" -j 16 -x 16 -d "' + path.join(full_tmp_dir, 'video_segments') + '" --header="Cookie:' + cookie + '"';
-        var result = execSync(aria2cCmd, { stdio: 'inherit' });
+            // download async. I'm Speed
+            var aria2cCmd = 'aria2c -i "' + video_full_path + '" -j 16 -x 16 -d "' + video_segments_path + '" --header="Cookie:' + cookie + '"';
+            var result = execSync(aria2cCmd, { stdio: 'inherit' });
+          } catch (e) { 
+		        term.green('\n\nOops! We lost some video fragment! Trying one more time...\n\n');	
+		        rmDir(video_segments_path);
+		        fs.unlinkSync(video_tmp_path);
+		        fs.unlinkSync(video_full_path);
+            continue;
+          }
+          break;
+        }
 
         // **** AUDIO ****
         var audioLink = basePlaylistsUrl + audioObj['uri'];
@@ -353,11 +367,23 @@ async function downloadVideo(videoUrls, username, password, outputDirectory) {
         var audio_tmp = await audio_tmp.replace(new RegExp('Fragments', 'g'), 'audio_segments/Fragments');
         const audio_full_path = path.join(full_tmp_dir, 'audio_full.m3u8');
         const audio_tmp_path = path.join(full_tmp_dir, 'audio_tmp.m3u8');
-        fs.writeFileSync(audio_full_path, audio_full);
-        fs.writeFileSync(audio_tmp_path, audio_tmp);
-
-        var aria2cCmd = 'aria2c -i "' + audio_full_path + '" -j 16 -x 16 -d "' + path.join(full_tmp_dir, 'audio_segments') + '" --header="Cookie:' + cookie + '"';
-        var result = execSync(aria2cCmd, { stdio: 'inherit' });
+        const audio_segments_path = path.join(full_tmp_dir, 'audio_segments'); 
+        while (true) {// make aria2 multithreading download more consistent and reliable
+          try {
+            fs.writeFileSync(audio_full_path, audio_full);
+            fs.writeFileSync(audio_tmp_path, audio_tmp);
+            
+            var aria2cCmd = 'aria2c -i "' + audio_full_path + '" -j 16 -x 16 -d "' + audio_segments_path + '" --header="Cookie:' + cookie + '"';
+            var result = execSync(aria2cCmd, { stdio: 'inherit' });
+          } catch (e) { 
+		        term.green('\n\nOops! We lost some audio fragment! Trying one more time...\n\n');	
+		        rmDir(audio_segments_path);
+		        fs.unlinkSync(audio_tmp_path);
+		        fs.unlinkSync(audio_full_path);
+            continue;
+          }
+          break;
+        }
 
         // *** MERGE audio and video segements in an mp4 file ***
         if (fs.existsSync(path.join(outputDirectory, title+'.mp4'))) {
@@ -388,7 +414,6 @@ async function downloadVideo(videoUrls, username, password, outputDirectory) {
     }
 
     console.log("\nAt this point Chrome's job is done, shutting it down...");
-    await browser.close();
     term.green(`Done!\n`);
 
 }
