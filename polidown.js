@@ -338,7 +338,7 @@ async function downloadVideo(videoUrls, username, password, outputDirectory) {
         const video_tmp_path = path.join(full_tmp_dir, 'video_tmp.m3u8');
         const video_segments_path = path.join(full_tmp_dir, 'video_segments');
         let times = 5;
-        let count = 0; 
+        count = 0; 
         while (count < times) {// make aria2 multithreading download more consistent and reliable
           try {
             fs.writeFileSync(video_full_path, video_full);
