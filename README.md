@@ -29,6 +29,8 @@ Improvements in this fork:
 * `cd` into the cloned folder
 * `npm install` to install dependencies
 
+### COMMAND LINE USAGE
+
 Default usage:
 ```
 $ node polidown.js --username CODICEPERSONA --videoUrls "https://web.microsoftstream.com/video/VIDEO-1"
@@ -87,6 +89,33 @@ $ node polidown.js -u CODICEPERSONA -v "https://web.microsoftstream.com/video/VI
 
 
 You can omit the password argument. PoliDown will ask for it interactively and then save it securely in system's keychain for the next use.
+
+### SCRIPT USAGE
+
+Fill in the required fields in the `.sh` \ `.bat` script (according to your OS: `.sh` for MacOS/Linux, `.bat` for Windows).
+
+Example (Windows):
+```
+@echo off
+rem Put your settings in place of the dots
+rem Remember! Assignment is space-sensitive!
+ 
+set polidown_folder_path="C:\MyFolder\AnotherFolder\PoliDown"
+set codice_persona=10026431
+set urls_file_path="C:\Users\supergiu\Desktop\links.txt"
+set output_folder_path="C:\Users\supergiu\Desktop"
+set quality_number=4
+
+cd /D %polidown_folder_path%
+node polidown.js -u %codice_persona% -f %urls_file_path% -o %output_folder_path% -q %quality_number%
+@echo.
+@echo Press any key to terminate . . .
+@pause >nul
+```
+
+Then:
+* for Windows, double click on the `.bat` script and enjoy
+* for MacOS/Linux, `.sh` script needs to be made executable (`chmod 777` command or just set properly flag in file properties). Then, run it with Terminal
 
 ## EXPECTED OUTPUT
 
