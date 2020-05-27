@@ -10,6 +10,7 @@ const path = require("path");
 const yargs = require("yargs");
 var m3u8Parser = require("m3u8-parser");
 const request = require('request');
+const notifier = require('node-notifier');
 
 const argv = yargs.options({
     v: { alias:'videoUrls', type: 'array', demandOption: false },
@@ -73,7 +74,10 @@ function sanityChecks() {
 
 function readFileToArray(path) {
     path = path.substr(1,path.length-2);
-    return fs.readFileSync(path).toString('utf-8').split('\r\n');
+	var isWin = process.platform;
+	if (isWin === "win32" || isWin === "win64") //check OP
+		return fs.readFileSync(path).toString('utf-8').split('\r\n'); //Windows procedure
+	return fs.readFileSync(path).toString('utf-8').split('\n'); //Bash procedure
 }
 
 function parseVideoUrls(videoUrls) {
@@ -434,6 +438,10 @@ async function downloadVideo(videoUrls, username, password, outputDirectory) {
     if (notDownloaded.length > 0) console.log('\nThese videos have not been downloaded: %s\n', notDownloaded);
     else console.log("\nAll requested videos have been downloaded!\n");
     term.green(`Done!\n`);
+	notifier.notify({ //native done notification
+		title: 'PoliDown',
+		message: 'Process done! See logs on terminal.'
+	});
 
 }
 
