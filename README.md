@@ -44,7 +44,7 @@ $ node polidown.js -h
 
 Options:
   --version              Show version number                           [boolean]
-  -v, --videoUrls                                             [array] [required]
+  -v, --videoUrls        Both video links and user-page links are accepted  [array] [required]
   -f, --videoUrlsFile    Path to txt file containing the URLs (one URL for each line) [string]
   -u, --username         Codice Persona PoliMi               [string] [required]
   -p, --password                                                        [string]
@@ -59,7 +59,7 @@ Multiple videos download:
 $ node polidown.js -u CODICEPERSONA
     -v "https://web.microsoftstream.com/video/VIDEO-1"
                 "https://web.microsoftstream.com/video/VIDEO-2"
-                "https://web.microsoftstream.com/video/VIDEO-3"
+                "https://web.microsoftstream.com/user/USER-1"
 ```
 
 Download from TXT file (one link each line):
