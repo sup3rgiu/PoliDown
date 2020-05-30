@@ -13,7 +13,7 @@ const request = require('request');
 const notifier = require('node-notifier');
 
 const argv = yargs.options({
-    v: { alias:'videoUrls', type: 'array', demandOption: false },
+    v: { alias: 'videoUrls', type: 'array', demandOption: false, describe: 'Both video links and user-page links are accepted' },
     f: { alias: 'videoUrlsFile', type: 'string', demandOption: false, describe: 'Path to txt file containing the URLs (one URL for each line)'},
     u: { alias:'username', type: 'string', demandOption: true, describe: 'Codice Persona PoliMi' },
     p: { alias:'password', type: 'string', demandOption: false },
@@ -85,6 +85,57 @@ function parseVideoUrls(videoUrls) {
     if (stringVideoUrls.substr(stringVideoUrls.length-5) == ".txt\"") // is path?
         return readFileToArray(stringVideoUrls);
     return videoUrls;
+}
+
+function writeFileScraping(scrapeResult) {
+    
+    try {
+        //I write one raw at a time
+        var scrapeFile = fs.createWriteStream('Links from Users.txt', { flags: 'a' });
+        var isWin = process.platform;
+        if (isWin === "win32" || isWin === "win64") {
+            for ( let i in scrapeResult) {
+                
+                scrapeFile.write(scrapeResult[i][0] + ' ' + scrapeResult[i][1] + ' -> ' + scrapeResult[i][2] + '\r\n');
+                
+            }
+            scrapeFile.end('');
+        } else {
+            for (let i in scrapeResult) {
+                scrapeFile.write(scrapeResult[i][0] + ' ' + scrapeResult[i][1] + ' -> ' + scrapeResult[i][2] + '\n');
+                
+            }
+            scrapeFile.end('');
+        }
+            
+    } catch (err) {
+        // An error occurred but if the scraping is correct the file is not needed
+        console.error(err);
+        return 1
+    }
+    return 0
+
+}
+
+//code copied but it could be improved based on user connection speed
+async function autoScroll(page,speed) {
+    await page.evaluate(async () => {
+        await new Promise((resolve, reject) => {
+            var totalHeight = 0;
+            //the distance change speed of scrolling
+            var distance = speed;
+            var timer = setInterval(() => {
+                var scrollHeight = document.body.scrollHeight;
+                window.scrollBy(0, distance);
+                totalHeight += distance;
+
+                if (totalHeight >= scrollHeight) {
+                    clearInterval(timer);
+                    resolve();
+                }
+            }, 100);
+        });
+    });
 }
 
 const notDownloaded = []; // take trace of not downloaded videos
@@ -169,17 +220,114 @@ async function downloadVideo(videoUrls, username, password, outputDirectory) {
 
    await browser.waitForTarget(target => target.url().includes('microsoftstream.com/'), { timeout: 90000 });
    console.log('We are logged in. ');
+
    await sleep (3000)
    const cookie = await extractCookies(page);
    console.log('Got required authentication cookies.');
-   console.log("\nAt this point Chrome's job is done, shutting it down...");
-   await browser.close(); // browser is no more required. Free up RAM!
+
+   //scraping user's pages
+    var scrapeResult;
+    var countUrl=0;
+
+    //check user urls before closing browser, I don't use API yet
     for (let videoUrl of videoUrls) {
-       if (videoUrl == "") continue; // jump empty url
+        if (videoUrl.includes("/user/")) {
+            countUrl = countUrl + 1;
+            console.log('Found a user url');
+            
+            try {
+                console.log('Waiting stream to get user page... ');
+                await page.goto(videoUrl, { waitUntil: 'networkidle2' });
+            } catch (error) {
+                console.log("Problem with this link: %s: %s", videoUrl, error);
+                continue;
+            }   
+            
+            try {                
+                await page.waitForSelector('button[class="show-more c-hyperlink c-action-trigger ng-binding"]', { timeout: 9000 });   
+                
+
+            } catch (error) {                
+                //Few videos maybe, botton is not needed
+            }
+            try {
+                console.log('Loading all links');
+                //I need to load the entire page before graping the links
+
+                await page.click('button[class="show-more c-hyperlink c-action-trigger ng-binding"]');
+                await page.waitFor(800);
+
+                await autoScroll(page,150); //It can be better and it should depend on connection (if don't get all links redo with 100 or less or try to improve if your connection is a good one)
+
+
+            } catch (error) {
+                //Few videos maybe, botton is not there
+            }
+            
+           
+
+            scrapeResult = await page.evaluate(async() => {
+                var result = []
+
+                //get all info
+                let links = document.querySelectorAll('a[class="c-hyperlink c-caption-1 video-list-item-title no-hover"]'); // Select all video's links
+                let dates = document.querySelectorAll('span[class="published-date-column date-text metric-inline-flex ng-binding ng-scope ng-isolate-scope"]');
+                let titles = document.querySelectorAll('span[class="video-title ng-binding ng-isolate-scope"]');
+                
+                if (links.length === dates.length && links.length === titles.length) {
+
+                    for (var i = 0; i < titles.length; i++) {
+                        result.push([
+                            links[i].getAttribute("href"),
+                            titles[i].innerText.trim(),
+                            dates[i].innerText
+                        ]);
+                    }
+                }
+
+                return result; // Return our data array
+            });
+            console.log("Got %d links from %s", scrapeResult.length, videoUrl);
+            await writeFileScraping(scrapeResult); //maybe better after browser.close() but now I'm not storing all link in RAM
+        }
+
+    }
+
+    console.log("\nAt this point Chrome's job is done, shutting it down...");
+    await browser.close(); // browser is no more required. Free up RAM!
+
+    if (scrapeResult !== undefined) {
+        //Create temp file so users can check if everything is correct        
+
+        var scrape_choice = await promptResChoice("Is there something wrong? [0=It's ok/ 1=Bad result]: ", 2);//Not write other useless lines
+        if (scrape_choice === 1) {
+            console.log("If something with user pages is wrong you can change the file 'Links from Users.txt' in PoliDown folder");
+            await promptResChoice("After your changes type any number 0-9: ", 10);
+
+            //read changes from file
+            (await readFileToArray('/Links from Users.txt:')).forEach((info) => videoUrls.push(info.substring(0, 43)));//Not write other useless lines and save as few character as possible
+            console.log("Start downloading %d videos", videoUrls.length - countUrl - 1); //file has last raw ''
+        } else {        
+            scrapeResult.forEach((info) => videoUrls.push(info[0]));
+            console.log("Start downloading %d videos", videoUrls.length - countUrl);
+        }
+
+        //deleting file with links
+        fs.unlink('./Links from Users.txt', function (err) {
+            if (err) return console.log(err);
+            //console.log('file deleted successfully');
+        }); 
+
+    }    
+
+    for (let videoUrl of videoUrls) {
+        
+        if (videoUrl == "" || videoUrl.includes("/user/")) continue; // jump empty url
+
        term.green(`\nStart downloading video: ${videoUrl}\n`);
 
        var videoID = videoUrl.substring(videoUrl.indexOf("/video/")+7, videoUrl.length).substring(0, 36); // use the video id (36 character after '/video/') as temp dir name
-       var full_tmp_dir = path.join(argv.outputDirectory, videoID);
+       var full_tmp_dir = path.join(argv.outputDirectory, videoID); 
 
        var headers = {
            'Cookie': cookie
