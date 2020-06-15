@@ -18,7 +18,8 @@ const argv = yargs.options({
     p: { alias:'password', type: 'string', demandOption: false },
     o: { alias:'outputDirectory', type: 'string', default: 'videos' },
     q: { alias: 'quality', type: 'number', demandOption: false, describe: 'Video Quality [0-5]'},
-    k: { alias: 'noKeyring', type: 'boolean', default: false, demandOption: false, describe: 'Do not use system keyring'}
+    k: { alias: 'noKeyring', type: 'boolean', default: false, demandOption: false, describe: 'Do not use system keyring'},
+	t: { alias: 'noToastNotification', type: 'boolean', default: false, demandOption: false, describe: 'Disable toast notification'}
 })
 .help('h')
 .alias('h', 'help')
@@ -28,6 +29,7 @@ const argv = yargs.options({
 .example('node $0 -u CODICEPERSONA -v "https://web.microsoftstream.com/video/9611baf5-b12e-4782-82fb-b2gf68c05adc" -q 4\n', "Define default quality download to avoid manual prompt")
 .example('node $0 -u CODICEPERSONA -v "https://web.microsoftstream.com/video/9611baf5-b12e-4782-82fb-b2gf68c05adc" -o "C:\\Lessons\\Videos"\n', "Define output directory (absoulte o relative path)")
 .example('node $0 -u CODICEPERSONA -v "https://web.microsoftstream.com/video/9611baf5-b12e-4782-82fb-b2gf68c05adc" -k\n', "Do not save the password into system keyring")
+.example('node $0 -u CODICEPERSONA -v "https://web.microsoftstream.com/video/9611baf5-b12e-4782-82fb-b2gf68c05adc" -t\n', "Disable system toast notification about finished download process")
 .argv;
 
 function sanityChecks() {
@@ -73,7 +75,9 @@ function sanityChecks() {
 
 function readFileToArray(path) {
     path = path.substr(1,path.length-2);
-    return fs.readFileSync(path).toString('utf-8').split('\r\n');
+	if (process.platform === "win32") //check OS
+		return fs.readFileSync(path).toString('utf-8').split('\r\n'); //Windows procedure
+	return fs.readFileSync(path).toString('utf-8').split('\n'); //Bash procedure
 }
 
 function parseVideoUrls(videoUrls) {
@@ -174,18 +178,24 @@ async function downloadVideo(videoUrls, username, password, outputDirectory) {
        if (videoUrl == "") continue; // jump empty url
        term.green(`\nStart downloading video: ${videoUrl}\n`);
 
-       var videoID = videoUrl.substring(videoUrl.indexOf("/video/")+7, videoUrl.length).substring(0, 36); // use the video id (36 character after '/video/') as temp dir name
-       var full_tmp_dir = path.join(argv.outputDirectory, videoID);
+	   try {
+         var videoID = videoUrl.substring(videoUrl.indexOf("/video/")+7, videoUrl.length).substring(0, 36); // use the video id (36 character after '/video/') as temp dir name
+         var full_tmp_dir = path.join(argv.outputDirectory, videoID);
 
-       var headers = {
-           'Cookie': cookie
-       };
+         var headers = {
+             'Cookie': cookie
+         };
 
-       var options = {
-           url: 'https://euwe-1.api.microsoftstream.com/api/videos/'+videoID+'?api-version=1.0-private',
-           headers: headers
-       };
-       var response = await doRequest(options);
+         var options = {
+             url: 'https://euwe-1.api.microsoftstream.com/api/videos/'+videoID+'?api-version=1.0-private',
+             headers: headers
+         };
+         var response = await doRequest(options);
+	   } catch (e) {
+	     term.red('\nUndefined URL request response. Going to the next one.\n');
+         notDownloaded.push(videoUrl);
+         continue;
+	   }
        const obj = JSON.parse(response);
 
        if(obj.hasOwnProperty('error')) {
@@ -229,28 +239,35 @@ async function downloadVideo(videoUrls, username, password, outputDirectory) {
        } else {
             // console.log("no upload date found");
        }
-
-      let playbackUrls = obj.playbackUrls
-      let hlsUrl = ''
-      for(var elem in playbackUrls) {
-          if(playbackUrls[elem]['mimeType'] === 'application/vnd.apple.mpegurl') {
-            var u = url.parse(playbackUrls[elem]['playbackUrl'], true);
-            hlsUrl = u.query.playbackurl
-            break;
-          }
-      }
+      
+	  try {
+        let playbackUrls = obj.playbackUrls
+        var hlsUrl = ''
+        for(var elem in playbackUrls) {
+            if(playbackUrls[elem]['mimeType'] === 'application/vnd.apple.mpegurl') {
+              var u = url.parse(playbackUrls[elem]['playbackUrl'], true);
+              hlsUrl = u.query.playbackurl
+              break;
+            }
+        }
 
         var options = {
             url: hlsUrl,
         };
         var response = await doRequest(options);
+		} catch (e) {
+	      term.red('\nCan\'t get current video HLS-URL. Going to the next one.\n');
+          notDownloaded.push(videoUrl);
+	      rmDir(full_tmp_dir);
+          continue;
+	    }
         var parser = new m3u8Parser.Parser();
         parser.push(response);
         parser.end();
         var parsedManifest = parser.manifest;
 
         var playlistsInfo = {};
-        var question = '\n';
+        var question = '';
         var count = 0;
         var audioObj = null;
         var videoObj = null;
@@ -274,12 +291,12 @@ async function downloadVideo(videoUrls, username, password, outputDirectory) {
         }
         else {
           if(argv.quality < 0 || argv.quality > count-1) {
-            term.yellow(`Desired quality is not available for this video (available range: 0-${count-1})\nI'm going to use the best resolution available: ${playlistsInfo[count-1]['resolution']}`);
+            term.yellow(`Desired quality is not available for this video (available range: 0-${count-1})\nI'm going to use the best resolution available: ${playlistsInfo[count-1]['resolution']}\n`);
             var res_choice = count-1;
           }
           else {
             var res_choice = argv.quality;
-            term.yellow(`Selected resolution: ${playlistsInfo[res_choice]['resolution']}`);
+            term.yellow(`Selected resolution: ${playlistsInfo[res_choice]['resolution']}\n`);
           }
         }
 
@@ -288,43 +305,57 @@ async function downloadVideo(videoUrls, username, password, outputDirectory) {
         const basePlaylistsUrl = hlsUrl.substring(0, hlsUrl.lastIndexOf("/") + 1);
 
         // **** VIDEO ****
-        var videoLink = basePlaylistsUrl + videoObj['uri'];
+		try {
+          var videoLink = basePlaylistsUrl + videoObj['uri'];
 
-        var headers = {
-            'Cookie': cookie
-        };
-        var options = {
-            url: videoLink,
-            headers: headers
-        };
+          var headers = {
+              'Cookie': cookie
+          };
+          var options = {
+              url: videoLink,
+              headers: headers
+          };
 
         // *** Get protection key (same key for video and audio segments) ***
-        var response = await doRequest(options);
-        var parser = new m3u8Parser.Parser();
-        parser.push(response);
-        parser.end();
-        var parsedManifest = parser.manifest;
-        const keyUri = parsedManifest['segments'][0]['key']['uri'];
-        var options = {
+          var response = await doRequest(options);
+		} catch (e) {
+	      term.red('\nCan\'t get video playlist-base of the current URL. Going to the next one.\n');
+          notDownloaded.push(videoUrl);
+	      rmDir(full_tmp_dir);
+          continue;
+	    }
+		try {
+          var parser = new m3u8Parser.Parser();
+          parser.push(response);
+          parser.end();
+          var parsedManifest = parser.manifest;
+          var keyUri = parsedManifest['segments'][0]['key']['uri'];
+          var options = {
             url: keyUri,
             headers: headers,
             encoding: null
-        };
-        const key = await doRequest(options);
+          };
+          const key = await doRequest(options);
 
-        var keyReplacement = '';
-        if (path.isAbsolute(full_tmp_dir) || full_tmp_dir[0] == '~') { // absolute path
-            var local_key_path = path.join(full_tmp_dir, 'my.key');
-        }
-        else {
-            var local_key_path = path.join(process.cwd(), full_tmp_dir, 'my.key'); // requires absolute path in order to replace the URI inside the m3u8 file
-        }
-        fs.writeFileSync(local_key_path, key);
-        if(process.platform === 'win32') {
-          keyReplacement = await 'file:' + local_key_path.replace(/\\/g, '/');
-        } else {
-          keyReplacement = 'file://' + local_key_path;
-        }
+          var keyReplacement = '';
+          if (path.isAbsolute(full_tmp_dir) || full_tmp_dir[0] == '~') { // absolute path
+              var local_key_path = path.join(full_tmp_dir, 'my.key');
+          }
+          else {
+              var local_key_path = path.join(process.cwd(), full_tmp_dir, 'my.key'); // requires absolute path in order to replace the URI inside the m3u8 file
+          }
+          fs.writeFileSync(local_key_path, key);
+          if(process.platform === 'win32') {
+            keyReplacement = await 'file:' + local_key_path.replace(/\\/g, '/');
+          } else {
+            keyReplacement = 'file://' + local_key_path;
+          }
+		} catch (e) {
+	      term.red('\nCan\'t get current playlist protection key. Going to the next URL.\n');
+          notDownloaded.push(videoUrl);
+	      rmDir(full_tmp_dir);
+          continue;
+	    }
 
 
         // creates two m3u8 files:
@@ -350,28 +381,35 @@ async function downloadVideo(videoUrls, username, password, outputDirectory) {
           } catch (e) { 
             term.green('\n\nOops! We lost some video fragment! Trying one more time...\n\n');	
             rmDir(video_segments_path);
-	          fs.unlinkSync(video_tmp_path);
-	          fs.unlinkSync(video_full_path);
+	        fs.unlinkSync(video_tmp_path);
+	        fs.unlinkSync(video_full_path);
             count++;
             continue;
           }
           break;
         }
         if (count==times) {
-          term.red('\nError downloading this video.\n');
+          term.red('\nPersistent errors during the download of the current video. Going to the next one.\n');
           notDownloaded.push(videoUrl);
           continue;
         }
 
         // **** AUDIO ****
-        var audioLink = basePlaylistsUrl + audioObj['uri'];
-        var options = {
-            url: audioLink,
-            headers: headers
-        };
+		try {
+          var audioLink = basePlaylistsUrl + audioObj['uri'];
+          var options = {
+              url: audioLink,
+              headers: headers
+          };
 
         // same as above but for audio segements
         var response = await doRequest(options);
+		} catch (e) {
+	      term.red('\nCan\'t get audio playlist-base of the current URL. Going to the next one.\n');
+          notDownloaded.push(videoUrl);
+	      rmDir(full_tmp_dir);
+          continue;
+	    }
         var baseUri = audioLink.substring(0, audioLink.lastIndexOf("/") + 1);
         var audio_full = await response.replace(new RegExp('Fragments', 'g'), baseUri+'Fragments');
         var audio_tmp = await response.replace(keyUri, keyReplacement);
@@ -388,18 +426,19 @@ async function downloadVideo(videoUrls, username, password, outputDirectory) {
             var aria2cCmd = 'aria2c -i "' + audio_full_path + '" -j 16 -x 16 -d "' + audio_segments_path + '" --header="Cookie:' + cookie + '"';
             var result = execSync(aria2cCmd, { stdio: 'inherit' });
           } catch (e) { 
-	          term.green('\n\nOops! We lost some audio fragment! Trying one more time...\n\n');	
-	          rmDir(audio_segments_path);
-	          fs.unlinkSync(audio_tmp_path);
-	          fs.unlinkSync(audio_full_path);
+	        term.green('\n\nOops! We lost some audio fragment! Trying one more time...\n\n');	
+	        rmDir(audio_segments_path);
+	        fs.unlinkSync(audio_tmp_path);
+	        fs.unlinkSync(audio_full_path);
             count++;
             continue;
           }
           break;
         }
         if (count==times) {
-          term.red('\nError downloading this video.\n');
+          term.red('\nPersistent errors during the download of the current video. Going to the next one.\n');
           notDownloaded.push(videoUrl);
+		  rmDir(full_tmp_dir);
           continue;
         }
 
@@ -434,6 +473,13 @@ async function downloadVideo(videoUrls, username, password, outputDirectory) {
     if (notDownloaded.length > 0) console.log('\nThese videos have not been downloaded: %s\n', notDownloaded);
     else console.log("\nAll requested videos have been downloaded!\n");
     term.green(`Done!\n`);
+	if ( argv.noToastNotification===false ) {
+      require('node-notifier').notify({
+      title: 'PoliDown',
+      message: 'DONE! See logs on terminal.',
+      appID: "https://nodejs.org/", // Such a smart assignment to avoid SnoreToast start menu link. Don't say to my mother.
+      }, function(error, response) {/*console.log(response);*/});
+    }
 
 }
 
@@ -506,7 +552,7 @@ function rmDir(dir, rmSelf) {
         });
     }
     if (rmSelf) {
-        // check if user want to delete the directory or just the files in this directory
+        // check if caller wants to delete the directory or just the files in this directory
         fs.rmdirSync(dir);
     }
 }
