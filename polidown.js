@@ -10,6 +10,7 @@ const path = require("path");
 const yargs = require("yargs");
 var m3u8Parser = require("m3u8-parser");
 const request = require('request');
+const notifier = require('node-notifier');
 
 const argv = yargs.options({
     v: { alias:'videoUrls', type: 'array', demandOption: false },
@@ -52,7 +53,7 @@ function sanityChecks() {
     if (argv.videoUrls === undefined && argv.videoUrlsFile === undefined) {
         term.red("Missing URLs arguments.\n");
         process.exit();
-    }        
+    }
     if (argv.videoUrls !== undefined && argv.videoUrlsFile !== undefined) {
         term.red("Can't get URLs from both argument.\n");
         process.exit();
@@ -239,7 +240,7 @@ async function downloadVideo(videoUrls, username, password, outputDirectory) {
        } else {
             // console.log("no upload date found");
        }
-      
+
 	  try {
         let playbackUrls = obj.playbackUrls
         var hlsUrl = ''
@@ -369,7 +370,7 @@ async function downloadVideo(videoUrls, username, password, outputDirectory) {
         const video_tmp_path = path.join(full_tmp_dir, 'video_tmp.m3u8');
         const video_segments_path = path.join(full_tmp_dir, 'video_segments');
         let times = 5;
-        count = 0; 
+        count = 0;
         while (count < times) {// make aria2 multithreading download more consistent and reliable
           try {
             fs.writeFileSync(video_full_path, video_full);
@@ -378,8 +379,8 @@ async function downloadVideo(videoUrls, username, password, outputDirectory) {
             // download async. I'm Speed
             var aria2cCmd = 'aria2c -i "' + video_full_path + '" -j 16 -x 16 -d "' + video_segments_path + '" --header="Cookie:' + cookie + '"';
             var result = execSync(aria2cCmd, { stdio: 'inherit' });
-          } catch (e) { 
-            term.green('\n\nOops! We lost some video fragment! Trying one more time...\n\n');	
+          } catch (e) {
+            term.green('\n\nOops! We lost some video fragment! Trying one more time...\n\n');
             rmDir(video_segments_path);
 	        fs.unlinkSync(video_tmp_path);
 	        fs.unlinkSync(video_full_path);
@@ -416,17 +417,17 @@ async function downloadVideo(videoUrls, username, password, outputDirectory) {
         var audio_tmp = await audio_tmp.replace(new RegExp('Fragments', 'g'), 'audio_segments/Fragments');
         const audio_full_path = path.join(full_tmp_dir, 'audio_full.m3u8');
         const audio_tmp_path = path.join(full_tmp_dir, 'audio_tmp.m3u8');
-        const audio_segments_path = path.join(full_tmp_dir, 'audio_segments'); 
+        const audio_segments_path = path.join(full_tmp_dir, 'audio_segments');
         count = 0;
         while (count < times) {// make aria2 multithreading download more consistent and reliable
           try {
             fs.writeFileSync(audio_full_path, audio_full);
             fs.writeFileSync(audio_tmp_path, audio_tmp);
-            
+
             var aria2cCmd = 'aria2c -i "' + audio_full_path + '" -j 16 -x 16 -d "' + audio_segments_path + '" --header="Cookie:' + cookie + '"';
             var result = execSync(aria2cCmd, { stdio: 'inherit' });
-          } catch (e) { 
-	        term.green('\n\nOops! We lost some audio fragment! Trying one more time...\n\n');	
+          } catch (e) {
+	        term.green('\n\nOops! We lost some audio fragment! Trying one more time...\n\n');
 	        rmDir(audio_segments_path);
 	        fs.unlinkSync(audio_tmp_path);
 	        fs.unlinkSync(audio_full_path);
