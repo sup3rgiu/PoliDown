@@ -117,6 +117,17 @@ Then:
 * for Windows, double click on the `.bat` script and enjoy
 * for MacOS/Linux, `.sh` script needs to be made executable (`chmod 777` command or just set properly flag in file properties). Then, run it with Terminal
 
+## TIPS AND TRICKS
+Let's say you want to download an entire course, how do you do? You can of course search for the course code on Microsoft Stream, then open each and every link and manually save them. 
+
+OR: you can let your computer do computer stuff and make it create the .txt file by himself. This is how you do it using cat, grep and sed (UNIX environment):
+
+1. Open streams and search for the course code, then scroll all the way down until all videos are loaded. We want to have all the links in that HTML page.
+1. Right click on the page and save it to an `.html` file.
+1. Now we want the computer to go through the file and extract the links for the videos. If you have WSL or a UNIX system you can give the command:
+``` cat input.html | grep -shoP "<a ng-href=\"\/video\/(.*?)\"" | sed 's/^<a ng-href="\(.*\)\"/https\:\/\/web\.microsoftstream\.com\1\r/' > links.txt```
+1. Done! Launch PoliDown as usual! `node polidown.js -u CODICEPERSONA -f "links.txt"`
+
 ## EXPECTED OUTPUT
 
 ```
