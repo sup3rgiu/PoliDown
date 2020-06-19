@@ -124,9 +124,14 @@ OR: you can let your computer do computer stuff and make it create the .txt file
 
 1. Open streams and search for the course code, then scroll all the way down until all videos are loaded. We want to have all the links in that HTML page.
 1. Right click on the page and save it to an `.html` file.
-1. Now we want the computer to go through the file and extract the links for the videos. If you have WSL or a UNIX system you can give the command:
-``` cat input.html | grep -shoP "<a ng-href=\"\/video\/(.*?)\"" | sed 's/^<a ng-href="\(.*\)\"/https\:\/\/web\.microsoftstream\.com\1\r/' > links.txt```
+1. Now we want the computer to go through the file and extract the links for the videos. If you have WSL or a UNIX system you can give the command: ` cat input.html | grep -shoP "<a ng-href=\"\/video\/(.*?)\"" | sed 's/^<a ng-href="\(.*\)\"/https\:\/\/web\.microsoftstream\.com\1\r/' > links.txt`
 1. Done! Launch PoliDown as usual! `node polidown.js -u CODICEPERSONA -f "links.txt"`
+
+Also, now your files are in the format of `Lesson dd_mm_yyyy *`, you might want them in a `Lesson aaa_mm_dd` format to get them in chronological order by ordering them by name. This can be done with:
+
+```
+ls | rename -e 's/(\w*\s)([0-9]*)_([0-9]*)_([0-9]*)(.*\.mp4)/$1$4_$3_$2$5/'
+```
 
 ## EXPECTED OUTPUT
 
