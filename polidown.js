@@ -235,7 +235,7 @@ async function downloadVideo(videoUrls, username, password, outputDirectory) {
             if (month < 10) {
             month = '0' + month;
           }
-          let uploadDate = dt + '_' + month + '_' + year;
+          let uploadDate = year + '_' + month + '_' + dt;
           title = 'Lesson ' + uploadDate + ' - ' + title;
        } else {
             // console.log("no upload date found");
