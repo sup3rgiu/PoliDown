@@ -518,8 +518,14 @@ async function extractUrls(filePage){
     urls.forEach((value, i) => console.log("[" + (i+1) + "] " + value + " - " + dates[i]));
     console.log();              // pretty printing
     
-    var skipCount = await promptResChoice("Please enter how many videos you want to skip downloading from the beginning of the list: ", urls.length-1);
+    var skipCount = await promptResChoice("Please enter how many videos you want to skip downloading from the beginning of the list: ", urls.length);
     urls.splice(0, skipCount);
+
+    var skipCount = await promptResChoice("Please enter how many videos you want to skip downloading from the bottom of the list: ", urls.length);
+    urls.length -= skipCount;
+
+    // var lastVideo = await promptResChoice("Please enter up to which video to download: ", urls.length);
+    // urls.splice(lastVideo);
 
     return urls;
 }
