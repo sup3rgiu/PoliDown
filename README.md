@@ -1,5 +1,10 @@
 # PoliDown
 
+Instructions for this fork:
+ - Save the Stream search page (right-click on the page > Save as...) in the same folder where polidown.js is
+ - instead of using -v to specify the links, use -f <filename>, replace <filename> with the name of the html file you just saved on step 1 
+ - the program will display the videos found in the page and make you choose how many you want to skip downloading from the top and the bottom of the list (0 if you don't want to skip any)
+
 ## Saves Microsoft Stream videos uploaded by Politecnico di Milano.
 
 This project was originally based on https://github.com/snobu/destreamer
