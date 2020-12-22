@@ -13,7 +13,7 @@
   "dependencies": {
     "keytar": "^6.0.0",
     "m3u8-parser": "^4.4.0",
-    "node-notifier": "^7.0.1",
+    "node-notifier": "^8.0.1",
     "puppeteer": "^2.1.1",
     "request": "^2.88.2",
     "terminal-kit": "^1.26.10",
