@@ -9,6 +9,7 @@ Improvements in this fork:
  - Multithreading download through aria2c
  - Possibility to choose the video resolution
 
+GUI Version: https://github.com/yuyu-19/PoliDL-GUI
 
 ## PREREQS
 
