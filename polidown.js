@@ -143,7 +143,8 @@ async function downloadVideo(videoUrls, username, password, outputDirectory) {
    await page.waitForSelector('input[id="login"]');
    await page.type('input#login', username) // mette il codice persona
    await page.type('input#password', password) // mette la password
-   await page.click('button[name="evn_conferma"]') // clicca sul tasto "Accedi"
+   const button = await page.$('button[name="evn_conferma"]');
+   await button.evaluate(b => b.click()); // clicca sul tasto "Accedi"
 
    try {
      await page.waitForSelector('div[class="Message ErrorMessage"]', { timeout: 1000 });
