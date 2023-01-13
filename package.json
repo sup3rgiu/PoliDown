@@ -16,7 +16,7 @@
     "node-notifier": "^10.0.0",
     "puppeteer": "^10.1.0",
     "request": "^2.88.2",
-    "terminal-kit": "^2.1.6",
+    "terminal-kit": "^2.1.8",
     "yargs": "^17.0.1"
   }
 }
